@@ -1296,15 +1296,14 @@
           </div>
           
           <div class="form-row">
-            <!-- News image upload simulator -->
+            <!-- News image upload -->
             <div class="form-group" id="formGroupImageUpload">
               <label>Ảnh biểu ngữ bài viết (Banner)</label>
-              <select id="newPostImageUrl">
-                <option value="https://images.unsplash.com/photo-1542744094-3a31f103e35f?q=80&w=600">Hội thảo công ty / Workshop</option>
-                <option value="https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?q=80&w=600">Đội nhóm teambuilding / Picnic</option>
-                <option value="https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=600">Chào đón nhân sự / Welcome new employee</option>
-                <option value="https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?q=80&w=600">Văn phòng / Họp đại hội</option>
-              </select>
+              <div class="file-dropzone" onclick="document.getElementById('newPostImageFile').click()" style="padding: 10px; border: 1px dashed var(--primary); border-radius: var(--radius); text-align: center; cursor: pointer; background: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <span class="material-symbols-outlined" style="font-size: 20px; color: var(--primary);">image</span>
+                <span id="newPostImageFileLabel" style="font-size: 0.8rem; font-weight: 600;">Tải ảnh biểu ngữ (.jpg, .png)</span>
+              </div>
+              <input type="file" id="newPostImageFile" accept="image/*" style="display: none;" onchange="handleNewPostImageChange(this)">
             </div>
             
             <div class="form-group" id="formGroupFileDownload">
