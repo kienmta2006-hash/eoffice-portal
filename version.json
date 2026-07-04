@@ -2,20 +2,20 @@
   "name": "eoffice-portal",
   "version": "1.0.0",
   "description": "eOffice - Cổng Thông Tin Nội Bộ Doanh Nghiệp. Hệ thống truyền thông nội bộ, quản lý văn bản và phê duyệt quy trình.",
-  "buildDate": "2026-07-04T07:15:43.688Z",
-  "buildTimestamp": 1783149343688,
+  "buildDate": "2026-07-04T10:12:27.005Z",
+  "buildTimestamp": 1783159947006,
   "files": {
     "index.html": {
-      "original": 86171,
-      "minified": 62083
+      "original": 99451,
+      "minified": 72250
     },
     "css/styles.css": {
-      "original": 61728,
-      "minified": 47948
+      "original": 67887,
+      "minified": 52889
     },
     "js/app.js": {
-      "original": 142846,
-      "minified": 142846
+      "original": 188088,
+      "minified": 188088
     }
   }
 }
