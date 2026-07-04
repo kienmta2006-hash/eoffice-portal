@@ -1,0 +1,11 @@
+# Docker
+.git
+node_modules
+dist
+*.md
+.gitignore
+.DS_Store
+.env*
+.firebase
+.firebaserc
+.netlify
