@@ -1243,7 +1243,22 @@ function showNewsDetail(id, focusComment = false) {
   }
 }
 
-function downloadFileSimulate(fileName) {
+function downloadFileSimulate(fileName, dataUrl) {
+  if (dataUrl) {
+    showToast(`Đang tải xuống tệp tin: ${fileName}...`, "info");
+    
+    // Create download link from real data URL (Base64)
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    
+    showToast(`Đã tải xuống tệp tin ${fileName} thành công!`, "success");
+    return;
+  }
+
   showToast(`Đang chuẩn bị tải xuống: ${fileName}...`, "info");
   
   setTimeout(() => {
@@ -1258,7 +1273,22 @@ function downloadFileSimulate(fileName) {
     URL.revokeObjectURL(url);
     
     showToast(`Đã tải xuống tệp tin ${fileName} thành công!`, "success");
-  }, 1000);
+  }, 500);
+}
+
+function downloadPostAttachment(postId, attIdx) {
+  const post = state.news.find(n => n.id === postId);
+  if (post && post.attachments && post.attachments[attIdx]) {
+    const file = post.attachments[attIdx];
+    downloadFileSimulate(file.name, file.data);
+  }
+}
+
+function downloadDocumentFile(docId) {
+  const doc = state.documents.find(d => d.id === docId);
+  if (doc && doc.file) {
+    downloadFileSimulate(doc.file.name, doc.file.data);
+  }
 }
 
 function updateNewsDetailActionButtons(post) {
@@ -1389,14 +1419,62 @@ function togglePostFormFields() {
 function handleNewPostFileChange(input) {
   const label = document.getElementById("newPostFileLabel");
   if (!label) return;
+  
+  const attachments = [];
   if (input.files && input.files.length > 0) {
-    if (input.files.length === 1) {
-      label.textContent = `Đã chọn: ${input.files[0].name}`;
-    } else {
-      label.textContent = `Đã chọn ${input.files.length} tệp tin`;
+    let loadedCount = 0;
+    label.textContent = `Đang đọc ${input.files.length} tệp...`;
+    
+    for (let i = 0; i < input.files.length; i++) {
+      const file = input.files[i];
+      const reader = new FileReader();
+      
+      reader.onload = function(e) {
+        let sizeStr = "";
+        if (file.size < 1024) sizeStr = file.size + " B";
+        else if (file.size < 1024 * 1024) sizeStr = (file.size / 1024).toFixed(0) + " KB";
+        else sizeStr = (file.size / (1024 * 1024)).toFixed(1) + " MB";
+        
+        attachments.push({
+          name: file.name,
+          size: sizeStr,
+          data: e.target.result // Real Base64 Data URL
+        });
+        
+        loadedCount++;
+        if (loadedCount === input.files.length) {
+          input.dataset.attachmentsJson = JSON.stringify(attachments);
+          if (input.files.length === 1) {
+            label.textContent = `Đã chọn: ${input.files[0].name}`;
+          } else {
+            label.textContent = `Đã chọn ${input.files.length} tệp tin`;
+          }
+        }
+      };
+      reader.readAsDataURL(file);
     }
   } else {
     label.textContent = "Click đính kèm file (PDF, DOCX)";
+    delete input.dataset.attachmentsJson;
+  }
+}
+
+function handleNewPostImageChange(input) {
+  const label = document.getElementById("newPostImageFileLabel");
+  if (!label) return;
+  if (input.files && input.files.length > 0) {
+    const file = input.files[0];
+    label.textContent = `Đang đọc ảnh: ${file.name}...`;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      input.dataset.imageDataUrl = e.target.result;
+      label.textContent = `Đã chọn ảnh: ${file.name}`;
+    };
+    reader.readAsDataURL(file);
+  } else {
+    label.textContent = "Tải ảnh biểu ngữ (.jpg, .png)";
+    delete input.dataset.imageDataUrl;
   }
 }
 
@@ -1404,9 +1482,28 @@ function handleNewDocFileChange(input) {
   const label = document.getElementById("newDocFileLabel");
   if (!label) return;
   if (input.files && input.files.length > 0) {
-    label.textContent = `Đã chọn: ${input.files[0].name}`;
+    const file = input.files[0];
+    label.textContent = `Đang đọc: ${file.name}...`;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      let sizeStr = "";
+      if (file.size < 1024) sizeStr = file.size + " B";
+      else if (file.size < 1024 * 1024) sizeStr = (file.size / 1024).toFixed(0) + " KB";
+      else sizeStr = (file.size / (1024 * 1024)).toFixed(1) + " MB";
+      
+      const fileObj = {
+        name: file.name,
+        size: sizeStr,
+        data: e.target.result
+      };
+      input.dataset.fileJson = JSON.stringify(fileObj);
+      label.textContent = `Đã chọn: ${file.name}`;
+    };
+    reader.readAsDataURL(file);
   } else {
     label.textContent = "Kéo thả file PDF văn bản hoặc Click để tải lên";
+    delete input.dataset.fileJson;
   }
 }
 
@@ -1415,7 +1512,6 @@ function submitNewPost() {
   const title = document.getElementById("newPostTitle").value.trim();
   const content = document.getElementById("newPostContent").value.trim();
   const docNum = document.getElementById("newPostDocNum").value.trim();
-  const image = document.getElementById("newPostImageUrl").value;
   const mandatory = document.getElementById("newPostIsMandatory").checked;
   const priority = document.getElementById("newPostPriority").value;
   
@@ -1424,21 +1520,18 @@ function submitNewPost() {
     return;
   }
   
+  // Get custom uploaded image or use fallback
+  const imageInput = document.getElementById("newPostImageFile");
+  let image = "https://images.unsplash.com/photo-1542744094-3a31f103e35f?q=80&w=600";
+  if (imageInput && imageInput.dataset.imageDataUrl) {
+    image = imageInput.dataset.imageDataUrl;
+  }
+  
+  // Get real file attachments from dataset
   const fileInput = document.getElementById("newPostFile");
-  const attachments = [];
-  if (fileInput && fileInput.files) {
-    for (let i = 0; i < fileInput.files.length; i++) {
-      const file = fileInput.files[i];
-      let sizeStr = "";
-      if (file.size < 1024) sizeStr = file.size + " B";
-      else if (file.size < 1024 * 1024) sizeStr = (file.size / 1024).toFixed(0) + " KB";
-      else sizeStr = (file.size / (1024 * 1024)).toFixed(1) + " MB";
-      
-      attachments.push({
-        name: file.name,
-        size: sizeStr
-      });
-    }
+  let attachments = [];
+  if (fileInput && fileInput.dataset.attachmentsJson) {
+    attachments = JSON.parse(fileInput.dataset.attachmentsJson);
   }
   
   const labelsMap = {
@@ -1500,6 +1593,16 @@ function submitNewPost() {
   
   // Reset form inputs
   document.getElementById("formNewPost").reset();
+  
+  // Clean up datasets and labels
+  if (fileInput) delete fileInput.dataset.attachmentsJson;
+  if (imageInput) delete imageInput.dataset.imageDataUrl;
+  
+  const fileLabel = document.getElementById("newPostFileLabel");
+  if (fileLabel) fileLabel.textContent = "Click đính kèm file (PDF, DOCX)";
+  
+  const imageLabel = document.getElementById("newPostImageFileLabel");
+  if (imageLabel) imageLabel.textContent = "Tải ảnh biểu ngữ (.jpg, .png)";
   
   renderNews();
 }
@@ -1813,7 +1916,15 @@ function submitNewDoc() {
   
   let fileName = code.replace(/\//g, "_") + "_Document.pdf";
   let sizeStr = "1.2 MB";
-  if (fileInput && fileInput.files && fileInput.files[0]) {
+  let fileData = null;
+  
+  if (fileInput && fileInput.dataset.fileJson) {
+    const fileObj = JSON.parse(fileInput.dataset.fileJson);
+    fileName = fileObj.name;
+    sizeStr = fileObj.size;
+    fileData = fileObj.data; // Base64 Data URL
+  } else if (fileInput && fileInput.files && fileInput.files[0]) {
+    // If dataset is not ready but files are present (fallback)
     fileName = fileInput.files[0].name;
     const file = fileInput.files[0];
     if (file.size < 1024) sizeStr = file.size + " B";
@@ -1831,11 +1942,12 @@ function submitNewDoc() {
     type: type,
     versions: [{ version: version, date: dateStr, note: "Bản ban hành đầu tiên", author: state.currentUser.name }],
     date: dateStr,
-    dept: state.currentUser.dept,
+    dept: state.currentUser.dept || "Ban Giám đốc",
     desc: desc,
     file: {
       name: fileName,
-      size: sizeStr
+      size: sizeStr,
+      data: fileData // Save real base64 file content
     }
   };
   
@@ -1844,6 +1956,12 @@ function submitNewDoc() {
   renderDocuments();
   closeModal("modalNewDoc");
   showToast("Tải lên tài liệu mới thành công", "success");
+  
+  // Reset form and label state
+  document.getElementById("formNewDoc").reset();
+  if (fileInput) delete fileInput.dataset.fileJson;
+  const docLabel = document.getElementById("newDocFileLabel");
+  if (docLabel) docLabel.textContent = "Kéo thả file PDF văn bản hoặc Click để tải lên";
 }
 
 function filterDocuments() {
@@ -1907,47 +2025,7 @@ function showDocDetail(id) {
   openModal("modalDocDetail");
 }
 
-function submitNewDoc() {
-  const code = document.getElementById("newDocCode").value.trim();
-  const type = document.getElementById("newDocType").value;
-  const title = document.getElementById("newDocTitle").value.trim();
-  const desc = document.getElementById("newDocDesc").value.trim();
-  const dept = document.getElementById("newDocDept").value;
-  const approver = document.getElementById("newDocApprover").value.trim();
-  
-  if (!code || !title) {
-    showToast("Vui lòng nhập đầy đủ Số hiệu và Trích yếu văn bản", "warning");
-    return;
-  }
-  
-  const now = new Date();
-  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-  
-  const newDoc = {
-    id: state.documents.length + 1,
-    code: code,
-    title: title,
-    type: type,
-    dept: dept,
-    approver: approver || "Nguyễn Văn An (Giám đốc)",
-    date: dateStr,
-    desc: desc || "Tài liệu ban hành lưu trữ nội bộ.",
-    versions: [
-      { version: "v1.0", date: dateStr, author: state.currentUser.name, changeLog: "Phiên bản ban hành đầu tiên trên eOffice." }
-    ],
-    file: { name: code.replace(/\//g, "_") + "_Document.pdf", size: "1.2 MB" }
-  };
-  
-  state.documents.unshift(newDoc);
-  saveState("documents", state.documents);
-  
-  closeModal("modalNewDoc");
-  showToast("Tải lên và ban hành văn bản thành công!", "success");
-  
-  document.getElementById("formNewDoc").reset();
-  renderDocuments();
-  renderDashboard();
-}
+// Removed duplicate submitNewDoc function to prevent conflict
 
 // ==========================================
 // 7. MODULE: ĐĂNG KÝ & PHÊ DUYỆT (REGISTRATIONS)
