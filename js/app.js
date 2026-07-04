@@ -27,7 +27,13 @@ const USERS = {
     phone: "0901.234.567",
     ext: "101",
     initials: "NA",
-    color: "#0284c7"
+    color: "#0284c7",
+    permissions: {
+      isAdmin: true,
+      canPostNews: true,
+      canUploadDocs: true,
+      canManageProcedures: true
+    }
   },
   hr: {
     username: "hr",
@@ -39,7 +45,13 @@ const USERS = {
     phone: "0909.876.543",
     ext: "201",
     initials: "LH",
-    color: "#7c3aed"
+    color: "#7c3aed",
+    permissions: {
+      isAdmin: false,
+      canPostNews: true,
+      canUploadDocs: false,
+      canManageProcedures: true
+    }
   },
   staff: {
     username: "staff",
@@ -51,7 +63,13 @@ const USERS = {
     phone: "0988.765.432",
     ext: "305",
     initials: "TB",
-    color: "#059669"
+    color: "#059669",
+    permissions: {
+      isAdmin: false,
+      canPostNews: false,
+      canUploadDocs: false,
+      canManageProcedures: false
+    }
   }
 };
 
@@ -90,16 +108,17 @@ const INITIAL_NEWS = [
     role: "Giám đốc",
     date: "2026-07-03",
     time: "08:30",
-    views: 142,
-    likes: 18,
-    likedBy: [],
+    views: 310,
+    likes: 24,
+    likedBy: ["hr"],
     bookmarkedBy: [],
     readLaterBy: [],
     comments: [
-      { author: "Lê Thị Hồng", text: "Chính sách rất kịp thời, động viên tinh thần anh em rất nhiều ạ!", time: "08:45" },
-      { author: "Trần Quốc Bảo", text: "Tuyệt vời quá ban giám đốc ơi! Cảm ơn công ty rất nhiều.", time: "09:12" }
+      { author: "Lê Thị Hồng", avatar: "LH", content: "Đã nhận thông tin chỉ đạo và đang thực hiện cập nhật bảng lương cho khối văn phòng.", date: "2026-07-03", time: "09:15" }
     ],
-    attachments: [{ name: "TB-032_Chinh_sach_luong_moi.pdf", size: "1.4 MB" }],
+    attachments: [
+      { name: "TB-032_Chinh_sach_luong_moi_2026.pdf", size: "1.2 MB" }
+    ],
     image: "https://images.unsplash.com/photo-1542744094-3a31f103e35f?q=80&w=600",
     mandatory: true,
     readBy: ["admin", "hr"]
@@ -107,16 +126,6 @@ const INITIAL_NEWS = [
   {
     id: 2,
     pinned: false,
-    category: "quyet-dinh",
-    catLabel: "📋 Quyết định",
-    title: "Quyết định ban hành Quy chế làm việc từ xa (Work From Home - WFH)",
-    excerpt: "Ban Giám đốc ký quyết định ban hành quy chế làm việc từ xa mới. Áp dụng cho khối văn phòng với tần suất tối đa 2 ngày/tuần nhằm tạo môi trường làm việc linh hoạt, tăng năng suất lao động.",
-    content: `Căn cứ đề xuất của Phòng Nhân sự và kết quả thử nghiệm mô hình làm việc hỗn hợp (Hybrid) trong Quý 1 năm 2026.<br><br>
-    <b>Giám đốc Công ty quyết định:</b><br>
-    1. Ban hành Quy chế làm việc từ xa áp dụng từ ngày 05/07/2026.<br>
-    2. Mỗi nhân sự thuộc khối Văn phòng được đăng ký làm việc tại nhà tối đa 2 ngày/tuần, với điều kiện phải hoàn thành đầy đủ KPI công việc và được Trưởng bộ phận phê duyệt trên eOffice trước 24h.<br>
-    3. Trưởng phòng CNTT chịu trách nhiệm cung cấp đường truyền bảo mật VPN và hỗ trợ kỹ thuật kết nối nội bộ.<br><br>
-    Xem chi tiết quy trình đăng ký và nghĩa vụ bảo mật thông tin trong file đính kèm.`,
     author: "Nguyễn Văn An",
     authorInitials: "NA",
     role: "Giám đốc",
@@ -418,13 +427,15 @@ function saveState(key, data) {
 
 // Global App State Object
 let state = {
-  currentUser: USERS.admin, // Default login user
+  currentUser: loadState("users", USERS).admin, // Default login user
+  users: loadState("users", USERS),
   news: loadState("news", INITIAL_NEWS),
   documents: loadState("documents", INITIAL_DOCUMENTS),
   requests: loadState("requests", INITIAL_REQUESTS),
   calendar: loadState("calendar", INITIAL_CALENDAR),
   surveys: loadState("surveys", INITIAL_SURVEYS),
   albums: loadState("albums", INITIAL_ALBUMS),
+  videos: loadState("videos", INITIAL_VIDEOS),
   notifications: loadState("notifications", INITIAL_NOTIFICATIONS),
   rooms: loadState("rooms", [
     "Phòng họp A (Lầu 1)",
@@ -446,6 +457,54 @@ let state = {
     "Sinh nhật",
     "Nghỉ lễ"
   ]),
+  departments: loadState("departments", DEPARTMENTS),
+  procedureTypes: loadState("procedureTypes", [
+    "Nghỉ phép năm",
+    "Đăng ký xe công vụ",
+    "Đăng ký phòng họp",
+    "Yêu cầu văn phòng phẩm"
+  ]),
+  procedureWorkflows: loadState("procedureWorkflows", {
+    "Nghỉ phép năm": [
+      { stepName: "Phê duyệt Nhân sự", approverName: "Lê Thị Hồng", approverKey: "hr" },
+      { stepName: "Phê duyệt Giám đốc", approverName: "Nguyễn Văn An", approverKey: "admin" }
+    ],
+    "Đăng ký xe công vụ": [
+      { stepName: "Phê duyệt Hành chính", approverName: "Nguyễn Văn An", approverKey: "admin" }
+    ],
+    "Đăng ký phòng họp": [
+      { stepName: "Phê duyệt Hành chính", approverName: "Lê Thị Hồng", approverKey: "hr" }
+    ],
+    "Yêu cầu văn phòng phẩm": [
+      { stepName: "Phê duyệt Nhân sự", approverName: "Lê Thị Hồng", approverKey: "hr" }
+    ]
+  }),
+  activeTabs: loadState("activeTabs", [
+    "dashboard",
+    "calendar",
+    "news",
+    "documents",
+    "requests",
+    "directory",
+    "surveys",
+    "albums"
+  ]),
+  dynamicForms: loadState("dynamicForms", [
+    {
+      id: "form-khao-sat-an-trua",
+      name: "Khảo sát chất lượng cơm trưa văn phòng",
+      description: "Nhằm nâng cao chất lượng dịch vụ ăn trưa cho nhân viên văn phòng, Ban Hành chính thân mời bạn đóng góp ý kiến đánh giá.",
+      fields: [
+        { label: "Chất lượng cơm trưa (1-5 sao)", type: "number", required: true, id: "field_rating" },
+        { label: "Món ăn ưa thích", type: "text", required: false, id: "field_favorite" },
+        { label: "Đóng góp ý kiến khác", type: "textarea", required: false, id: "field_comments" }
+      ],
+      submissions: [
+        { username: "hr", date: "2026-07-03", data: { field_rating: 4, field_favorite: "Thịt kho tàu", field_comments: "Cơm hơi khô một chút." } },
+        { username: "staff", date: "2026-07-04", data: { field_rating: 5, field_favorite: "Cá thu sốt cà", field_comments: "Rất ngon và sạch sẽ." } }
+      ]
+    }
+  ]),
   activeView: "dashboard",
   selectedCalendarDate: "2026-07-03",
   currentCalendarMonth: 6, // July (0-indexed)
@@ -464,12 +523,14 @@ window.addEventListener("DOMContentLoaded", () => {
 });
 
 function initApp() {
+  updateLoginSelectOptions();
   populateTaxonomyDropdowns();
+  updateNavbarTabs();
   // Hide main view if not logged in
   const loggedIn = localStorage.getItem("eoffice_logged_in");
   if (loggedIn) {
     const userKey = localStorage.getItem("eoffice_user_key") || "admin";
-    state.currentUser = USERS[userKey];
+    state.currentUser = state.users[userKey] || USERS[userKey];
     document.getElementById("loginView").style.display = "none";
     document.getElementById("appShell").style.display = "flex";
     
@@ -487,7 +548,7 @@ function initApp() {
 
 function doLogin() {
   const userKey = document.getElementById("loginUser").value;
-  state.currentUser = USERS[userKey];
+  state.currentUser = state.users[userKey] || USERS[userKey];
   localStorage.setItem("eoffice_logged_in", "true");
   localStorage.setItem("eoffice_user_key", userKey);
   
@@ -534,7 +595,8 @@ function updateUserProfileHeader() {
   // Show/hide admin tab
   const adminTab = document.getElementById("tab-admin");
   if (adminTab) {
-    if (state.currentUser.username === "admin") {
+    const isUserAdmin = state.currentUser.username === "admin" || (state.currentUser.permissions && state.currentUser.permissions.isAdmin);
+    if (isUserAdmin) {
       adminTab.style.display = "inline-block";
     } else {
       adminTab.style.display = "none";
@@ -680,6 +742,10 @@ function openModal(id) {
     document.getElementById("newEventDate").value = state.selectedCalendarDate;
   }
   if (id === "modalNewRequest") {
+    const select = document.getElementById("newRequestType");
+    if (select) {
+      select.innerHTML = state.procedureTypes.map(t => `<option value="${t}">${t}</option>`).join('');
+    }
     toggleRequestFormFields();
   }
 }
@@ -792,10 +858,11 @@ function renderNews(searchQuery = "") {
   const bannerEl = document.getElementById("newsFeaturedBanner");
   const gridEl = document.getElementById("newsGrid");
   
-  // Toggle news creation button visibility based on admin role
+  // Toggle news creation button visibility based on admin role or post permissions
   const createBtn = document.getElementById("newsCreatePostBtn");
+  const canPostNews = state.currentUser.username === 'admin' || (state.currentUser.permissions && state.currentUser.permissions.canPostNews);
   if (createBtn) {
-    createBtn.style.display = state.currentUser.username === 'admin' ? 'block' : 'none';
+    createBtn.style.display = canPostNews ? 'block' : 'none';
   }
   
   // Render slide banner for featured pinned news
@@ -825,9 +892,16 @@ function renderNews(searchQuery = "") {
   
   // Filter news items
   let filteredNews = state.news;
-  if (activeNewsCategoryFilter !== "all") {
+  if (activeNewsCategoryFilter === "pinned") {
+    filteredNews = filteredNews.filter(n => n.pinned);
+  } else if (activeNewsCategoryFilter === "read-later") {
+    filteredNews = filteredNews.filter(n => (n.readLaterBy || []).includes(state.currentUser.username));
+  } else if (activeNewsCategoryFilter === "bookmarked") {
+    filteredNews = filteredNews.filter(n => (n.bookmarkedBy || []).includes(state.currentUser.username));
+  } else if (activeNewsCategoryFilter !== "all") {
     filteredNews = filteredNews.filter(n => n.category === activeNewsCategoryFilter);
   }
+  
   if (searchQuery) {
     filteredNews = filteredNews.filter(n => n.title.toLowerCase().includes(searchQuery) || n.excerpt.toLowerCase().includes(searchQuery));
   }
@@ -879,13 +953,16 @@ function renderNews(searchQuery = "") {
               <span class="material-symbols-outlined">chat_bubble</span> Bình luận
             </button>
             <button class="news-action-btn ${isBookmarked ? 'active' : ''}" onclick="toggleBookmarkNews(${n.id})">
-              <span class="material-symbols-outlined">bookmark</span> Lưu
+              <span class="material-symbols-outlined">bookmark</span> ${isBookmarked ? 'Bỏ Lưu' : 'Lưu'}
             </button>
             <button class="news-action-btn ${isReadLater ? 'active' : ''}" onclick="toggleReadLaterNews(${n.id})">
-              <span class="material-symbols-outlined">update</span> Đọc sau
+              <span class="material-symbols-outlined">update</span> ${isReadLater ? 'Bỏ đọc sau' : 'Đọc sau'}
             </button>
-            ${state.currentUser.username === 'admin' ? `
-              <button class="news-action-btn danger-btn" onclick="deleteNewsPost(${n.id})" style="margin-left: auto; color: var(--danger); display: flex; align-items: center; gap: 4px; border: 1px solid transparent; background: transparent; padding: 4px 8px; border-radius: 4px;">
+            ${canPostNews ? `
+              <button class="news-action-btn" onclick="togglePinNews(${n.id})" style="margin-left: auto; color: var(--primary); display: flex; align-items: center; gap: 4px;">
+                <span class="material-symbols-outlined" style="font-size: 16px;">push_pin</span> ${n.pinned ? 'Bỏ ghim' : 'Ghim'}
+              </button>
+              <button class="news-action-btn danger-btn" onclick="deleteNewsPost(${n.id})" style="color: var(--danger); display: flex; align-items: center; gap: 4px; border: 1px solid transparent; background: transparent; padding: 4px 8px; border-radius: 4px;">
                 <span class="material-symbols-outlined" style="font-size: 16px;">delete</span> Xóa
               </button>
             ` : ''}
@@ -925,7 +1002,8 @@ function filterNewsCategory(cat) {
 }
 
 function deleteNewsPost(id) {
-  if (state.currentUser.username !== 'admin') {
+  const canPostNews = state.currentUser.username === 'admin' || (state.currentUser.permissions && state.currentUser.permissions.canPostNews);
+  if (!canPostNews) {
     showToast("Bạn không có quyền thực hiện chức năng này", "error");
     return;
   }
@@ -939,15 +1017,45 @@ function deleteNewsPost(id) {
   }
 }
 
+function togglePinNews(id) {
+  const canPostNews = state.currentUser.username === 'admin' || (state.currentUser.permissions && state.currentUser.permissions.canPostNews);
+  if (!canPostNews) {
+    showToast("Bạn không có quyền thực hiện chức năng này", "error");
+    return;
+  }
+  
+  const post = state.news.find(n => n.id === id);
+  if (!post) return;
+  
+  // If pinning this post, unpin other posts (only one pinned post as featured banner)
+  if (!post.pinned) {
+    state.news.forEach(n => n.pinned = false);
+  }
+  post.pinned = !post.pinned;
+  
+  saveState("news", state.news);
+  renderNews();
+  renderDashboard();
+  showToast(post.pinned ? "Đã ghim bài viết lên đầu trang" : "Đã bỏ ghim bài viết", "success");
+}
+
 // Render Videos Row inside News view
 function renderVideoNewsScroll() {
   const row = document.getElementById("videoNewsScrollRow");
-  row.innerHTML = INITIAL_VIDEOS.map(v => `
-    <div class="video-media-card" onclick="playVideoMock('${v.title}')">
+  if (!row) return;
+  const canPostNews = state.currentUser.username === 'admin' || (state.currentUser.permissions && state.currentUser.permissions.canPostNews);
+  
+  row.innerHTML = state.videos.map(v => `
+    <div class="video-media-card" onclick="playVideoReal(${v.id})">
       <div class="video-thumb-container" style="background-image: url('${v.bg}')">
         <div class="video-play-overlay">
           <span class="material-symbols-outlined">play_arrow</span>
         </div>
+        ${canPostNews ? `
+          <button class="delete-video-btn" onclick="deleteVideoPost(${v.id}, event)" title="Xóa video" style="position: absolute; top: 8px; right: 8px; background: rgba(220, 38, 38, 0.85); color: white; border: none; border-radius: 4px; padding: 4px; display: flex; align-items: center; cursor: pointer; transition: 0.2s; z-index: 10;">
+            <span class="material-symbols-outlined" style="font-size: 16px;">delete</span>
+          </button>
+        ` : ''}
       </div>
       <div class="video-media-body">
         <div class="video-media-title">${v.title}</div>
@@ -959,9 +1067,44 @@ function renderVideoNewsScroll() {
   `).join('');
 }
 
-function playVideoMock(title) {
-  showToast(`Đang tải video: "${title}"... (Tính năng giả lập phát tin video)`, "info");
+function playVideoReal(id) {
+  const video = state.videos.find(v => v.id === id);
+  if (!video) return;
+  
+  video.views++;
+  saveState("videos", state.videos);
+  renderVideoNewsScroll();
+  
+  // Fill Modal Video Player
+  document.getElementById("videoPlayerTitle").textContent = video.title;
+  const videoEl = document.getElementById("videoPlayerElement");
+  if (videoEl) {
+    videoEl.src = video.url;
+    videoEl.load();
+    videoEl.play().catch(err => console.log("Auto-play prevented:", err));
+  }
+  openModal("modalVideoPlayer");
 }
+
+function closeVideoPlayer() {
+  const videoEl = document.getElementById("videoPlayerElement");
+  if (videoEl) {
+    videoEl.pause();
+  }
+  closeModal("modalVideoPlayer");
+}
+
+function deleteVideoPost(id, event) {
+  if (event) event.stopPropagation();
+  
+  if (confirm("Bạn có chắc chắn muốn xóa video tin tức này không?")) {
+    state.videos = state.videos.filter(v => v.id !== id);
+    saveState("videos", state.videos);
+    renderVideoNewsScroll();
+    showToast("Đã xóa video tin tức thành công", "success");
+  }
+}
+
 
 // Render Albums Row preview inside News view
 function renderAlbumsPreviewScroll() {
@@ -1079,7 +1222,7 @@ function showNewsDetail(id, focusComment = false) {
         <span class="material-symbols-outlined">picture_as_pdf</span>
         <span style="font-weight: 500;">${file.name}</span>
         <span>(${file.size})</span>
-        <button class="btn btn-outline btn-sm" onclick="showToast('Đã tải xuống tệp tin ${file.name}', 'success')" style="margin-left: auto; padding: 4px 8px;"><span class="material-symbols-outlined" style="font-size: 14px;">download</span> Tải về</button>
+        <button class="btn btn-outline btn-sm" onclick="downloadFileSimulate('${file.name}')" style="margin-left: auto; padding: 4px 8px;"><span class="material-symbols-outlined" style="font-size: 14px;">download</span> Tải về</button>
       </div>
     `).join('');
   } else {
@@ -1098,6 +1241,24 @@ function showNewsDetail(id, focusComment = false) {
       document.getElementById("newsCommentInput").focus();
     }, 300);
   }
+}
+
+function downloadFileSimulate(fileName) {
+  showToast(`Đang chuẩn bị tải xuống: ${fileName}...`, "info");
+  
+  setTimeout(() => {
+    const blob = new Blob(["Simulated content of " + fileName], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    showToast(`Đã tải xuống tệp tin ${fileName} thành công!`, "success");
+  }, 1000);
 }
 
 function updateNewsDetailActionButtons(post) {
@@ -1239,6 +1400,23 @@ function submitNewPost() {
     return;
   }
   
+  const fileInput = document.getElementById("newPostFile");
+  const attachments = [];
+  if (fileInput && fileInput.files) {
+    for (let i = 0; i < fileInput.files.length; i++) {
+      const file = fileInput.files[i];
+      let sizeStr = "";
+      if (file.size < 1024) sizeStr = file.size + " B";
+      else if (file.size < 1024 * 1024) sizeStr = (file.size / 1024).toFixed(0) + " KB";
+      else sizeStr = (file.size / (1024 * 1024)).toFixed(1) + " MB";
+      
+      attachments.push({
+        name: file.name,
+        size: sizeStr
+      });
+    }
+  }
+  
   const labelsMap = {
     "tin-tuc": "📰 Tin tức",
     "thong-bao": "📢 Thông báo",
@@ -1269,7 +1447,7 @@ function submitNewPost() {
     bookmarkedBy: [],
     readLaterBy: [],
     comments: [],
-    attachments: [],
+    attachments: attachments,
     image: image,
     mandatory: mandatory,
     readBy: [state.currentUser.username]
@@ -1532,6 +1710,13 @@ function renderDocuments() {
   const docType = document.getElementById("filterDocType").value;
   const docDept = document.getElementById("filterDocDept").value;
   
+  // Show/hide upload button based on permission
+  const uploadBtn = document.getElementById("docUploadBtn");
+  if (uploadBtn) {
+    const canUpload = state.currentUser.username === 'admin' || (state.currentUser.permissions && state.currentUser.permissions.canUploadDocs);
+    uploadBtn.style.display = canUpload ? 'block' : 'none';
+  }
+  
   let list = state.documents;
   
   if (docType !== "all") {
@@ -1541,7 +1726,7 @@ function renderDocuments() {
     list = list.filter(d => d.dept === docDept);
   }
   if (query) {
-    list = list.filter(d => d.title.toLowerCase().includes(query) || d.code.toLowerCase().includes(query) || d.desc.toLowerCase().includes(query));
+    list = list.filter(d => d.title.toLowerCase().includes(query) || d.code.toLowerCase().includes(query) || (d.desc && d.desc.toLowerCase().includes(query)));
   }
   
   if (list.length === 0) {
@@ -1561,11 +1746,11 @@ function renderDocuments() {
       <td><strong style="color:var(--primary); font-family:monospace;">${d.code}</strong></td>
       <td style="max-width:320px; font-weight:600; cursor:pointer;" onclick="showDocDetail(${d.id})">${d.title}</td>
       <td><span class="badge ${d.type === 'Quy định & Quy chế' ? 'badge-primary' : d.type === 'Quy trình' ? 'badge-success' : d.type === 'Biểu mẫu' ? 'badge-warning' : d.type === 'Chính sách' ? 'badge-purple' : d.type === 'Quyết định & Văn bản chỉ đạo' ? 'badge-danger' : 'badge-cyan'}">${d.type}</span></td>
-      <td><span class="version-badge">${d.versions[0].version}</span></td>
+      <td><span class="version-badge">${d.versions && d.versions[0] ? d.versions[0].version : 'v1.0'}</span></td>
       <td>${d.date}</td>
       <td>${d.dept}</td>
       <td>
-        <a href="#" onclick="showToast('Đang tải tệp: ${d.file.name}', 'success')" style="display:flex; align-items:center; gap:4px; font-weight:500;">
+        <a href="#" onclick="downloadFileSimulate('${d.file.name}'); event.preventDefault();" style="display:flex; align-items:center; gap:4px; font-weight:500;">
           <span class="material-symbols-outlined" style="font-size:18px; color:var(--danger)">picture_as_pdf</span>
           Tải về
         </a>
@@ -1575,6 +1760,66 @@ function renderDocuments() {
       </td>
     </tr>
   `).join('');
+}
+
+function openNewDocModal() {
+  document.getElementById("formNewDoc").reset();
+  
+  // Populate category select options dynamically from state.docCategories
+  const select = document.getElementById("newDocCategorySelect");
+  if (select) {
+    select.innerHTML = state.docCategories.map(c => `<option value="${c}">${c}</option>`).join('');
+  }
+  
+  openModal("modalNewDoc");
+}
+
+function submitNewDoc() {
+  const title = document.getElementById("newDocTitle").value.trim();
+  const code = document.getElementById("newDocCode").value.trim();
+  const type = document.getElementById("newDocCategorySelect").value;
+  const version = document.getElementById("newDocVersion").value.trim() || "v1.0";
+  const desc = document.getElementById("newDocDesc").value.trim();
+  const fileInput = document.getElementById("newDocFile");
+  
+  if (!title || !code || !type) {
+    showToast("Vui lòng nhập đầy đủ các trường thông tin bắt buộc", "warning");
+    return;
+  }
+  
+  let fileName = code.replace(/\//g, "_") + "_Document.pdf";
+  let sizeStr = "1.2 MB";
+  if (fileInput && fileInput.files && fileInput.files[0]) {
+    fileName = fileInput.files[0].name;
+    const file = fileInput.files[0];
+    if (file.size < 1024) sizeStr = file.size + " B";
+    else if (file.size < 1024 * 1024) sizeStr = (file.size / 1024).toFixed(0) + " KB";
+    else sizeStr = (file.size / (1024 * 1024)).toFixed(1) + " MB";
+  }
+  
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  
+  const newDoc = {
+    id: state.documents.length + 1,
+    title: title,
+    code: code,
+    type: type,
+    versions: [{ version: version, date: dateStr, note: "Bản ban hành đầu tiên", author: state.currentUser.name }],
+    date: dateStr,
+    dept: state.currentUser.dept,
+    desc: desc,
+    file: {
+      name: fileName,
+      size: sizeStr
+    }
+  };
+  
+  state.documents.unshift(newDoc);
+  saveState("documents", state.documents);
+  renderDocuments();
+  closeModal("modalNewDoc");
+  showToast("Tải lên tài liệu mới thành công", "success");
 }
 
 function filterDocuments() {
@@ -1687,9 +1932,10 @@ function submitNewDoc() {
 function toggleRequestFormFields() {
   const type = document.getElementById("newRequestType").value;
   const container = document.getElementById("requestFieldsContainer");
+  if (!container) return;
   
   let html = "";
-  if (type === "Nghỉ phép") {
+  if (type === "Nghỉ phép" || type === "Nghỉ phép năm" || type.toLowerCase().includes("nghỉ")) {
     html = `
       <div class="form-row">
         <div class="form-group">
@@ -1702,12 +1948,11 @@ function toggleRequestFormFields() {
         </div>
       </div>
       <div class="form-group">
-        <label for="reqLeaveBànGiao">Người bàn giao bàn giao công việc *</label>
+        <label for="reqLeaveBànGiao">Người bàn giao công việc *</label>
         <input type="text" id="reqLeaveBànGiao" placeholder="Tên đồng nghiệp bàn giao..." required>
       </div>
     `;
-    document.getElementById("newRequestWorkflowPreview").textContent = "Quản lý trực tiếp phê duyệt → Trưởng phòng Nhân sự xác nhận → Cập nhật quỹ phép";
-  } else if (type === "Xe công") {
+  } else if (type === "Xe công" || type === "Đăng ký xe công vụ" || type.toLowerCase().includes("xe")) {
     html = `
       <div class="form-group">
         <label for="reqCarRoute">Lộ trình di chuyển chi tiết *</label>
@@ -1724,8 +1969,7 @@ function toggleRequestFormFields() {
         </div>
       </div>
     `;
-    document.getElementById("newRequestWorkflowPreview").textContent = "Quản lý trực tiếp duyệt → Phòng Hành chính điều xe và tài xế";
-  } else if (type === "Phòng họp") {
+  } else if (type === "Phòng họp" || type === "Đăng ký phòng họp" || type.toLowerCase().includes("phòng")) {
     html = `
       <div class="form-group">
         <label for="reqRoomName">Chọn phòng họp trống *</label>
@@ -1750,28 +1994,25 @@ function toggleRequestFormFields() {
         </div>
       </div>
     `;
-    document.getElementById("newRequestWorkflowPreview").textContent = "Phòng họp được duyệt trực tiếp nếu trống lịch";
-  } else if (type === "Công tác") {
+  } else {
     html = `
-      <div class="form-group">
-        <label for="reqTravelDest">Địa điểm công tác *</label>
-        <input type="text" id="reqTravelDest" placeholder="Tên chi nhánh, tỉnh thành công tác..." required>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label for="reqTravelStart">Ngày bắt đầu công tác *</label>
-          <input type="date" id="reqTravelStart" required>
-        </div>
-        <div class="form-group">
-          <label for="reqTravelEnd">Ngày kết thúc *</label>
-          <input type="date" id="reqTravelEnd" required>
-        </div>
+      <div style="padding:10px; background:#f0fdf4; color:#166534; font-size:0.8rem; border-radius:6px; margin-bottom:12px; font-weight:500;">
+        Thủ tục đăng ký thông thường. Vui lòng nhập lý do và chi tiết đề xuất vào phần nội dung bên dưới.
       </div>
     `;
-    document.getElementById("newRequestWorkflowPreview").textContent = "Quản lý duyệt → Kế toán trưởng tạm ứng công tác phí → Giám đốc phê duyệt cuối";
   }
-  
   container.innerHTML = html;
+  
+  // Set workflow preview dynamically
+  const preview = document.getElementById("newRequestWorkflowPreview");
+  if (preview) {
+    const config = state.procedureWorkflows[type] || [];
+    if (config.length > 0) {
+      preview.textContent = "Bắt đầu → " + config.map(c => `${c.stepName} (${c.approverName})`).join(' → ') + " → Hoàn thành";
+    } else {
+      preview.textContent = "Bắt đầu → Phê duyệt Hành chính (Nguyễn Văn An) → Hoàn thành";
+    }
+  }
 }
 
 function renderRequests() {
@@ -1831,34 +2072,60 @@ function renderMyRequests() {
 
 function renderPendingApprovals() {
   const container = document.getElementById("pendingApprovalsContainer");
-  
-  // Admin acts as Manager/Director, HR acts as HR reviewer, Staff has no approval permissions
-  const unreadApprovals = state.requests.filter(r => r.status === "pending");
-  
-  // Set navbar warnings badge
-  const pendingCount = unreadApprovals.length;
   const navBadge = document.getElementById("badgePendingApprovalsCount");
+  
+  const isUserAdmin = state.currentUser.username === "admin" || (state.currentUser.permissions && state.currentUser.permissions.isAdmin);
+  const canManageProcs = state.currentUser.permissions && state.currentUser.permissions.canManageProcedures;
+  
+  // Filter pending approvals where current user is the current active actor in workflow (or admin / canManageProcs)
+  const unreadApprovals = state.requests.filter(r => {
+    if (r.status !== "pending") return false;
+    
+    const pendingStep = r.workflow.find(w => w.action === "pending");
+    if (!pendingStep) return false;
+    
+    if (isUserAdmin) return true;
+    
+    // Check if designated approver matches current user
+    const matchesUser = pendingStep.approverKey === state.currentUser.username || pendingStep.actor === state.currentUser.name;
+    if (matchesUser) return true;
+    
+    // If user has canManageProcedures permission, allow them to approve
+    if (canManageProcs && pendingStep.approverKey === state.currentUser.username) return true;
+    
+    return false;
+  });
+  
+  const pendingCount = unreadApprovals.length;
   document.getElementById("kpiPendingApprovals").textContent = pendingCount;
   
-  if (state.currentUser.username === "staff") {
+  const isUserStaff = state.currentUser.username === "staff" && (!state.currentUser.permissions || (!state.currentUser.permissions.isAdmin && !state.currentUser.permissions.canManageProcedures));
+  
+  if (isUserStaff && unreadApprovals.length === 0) {
     container.innerHTML = `
       <div style="text-align: center; padding: 24px; color: var(--text-muted); font-size: 0.9rem;">
         <span class="material-symbols-outlined" style="font-size:2.5rem; display:block; margin-bottom:8px;">shield_lock</span>
         Bạn không có quyền hạn phê duyệt thủ tục đăng ký.
       </div>
     `;
-    navBadge.style.display = "none";
+    if (navBadge) navBadge.style.display = "none";
     return;
   }
   
   if (pendingCount > 0) {
-    navBadge.style.display = "inline-block";
-    navBadge.textContent = pendingCount;
-    document.getElementById("pendingApprovalsBadgeHeader").style.display = "inline-flex";
-    document.getElementById("pendingApprovalsBadgeHeader").textContent = `${pendingCount} đơn`;
+    if (navBadge) {
+      navBadge.style.display = "inline-block";
+      navBadge.textContent = pendingCount;
+    }
+    const badgeHeader = document.getElementById("pendingApprovalsBadgeHeader");
+    if (badgeHeader) {
+      badgeHeader.style.display = "inline-flex";
+      badgeHeader.textContent = `${pendingCount} đơn`;
+    }
   } else {
-    navBadge.style.display = "none";
-    document.getElementById("pendingApprovalsBadgeHeader").style.display = "none";
+    if (navBadge) navBadge.style.display = "none";
+    const badgeHeader = document.getElementById("pendingApprovalsBadgeHeader");
+    if (badgeHeader) badgeHeader.style.display = "none";
   }
   
   if (unreadApprovals.length === 0) {
@@ -1871,21 +2138,27 @@ function renderPendingApprovals() {
     return;
   }
   
-  container.innerHTML = unreadApprovals.map(r => `
-    <div class="card" style="padding:16px; border-color:var(--warning-light);">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <span class="badge ${r.type === 'Nghỉ phép' ? 'badge-danger' : r.type === 'Xe công' ? 'badge-warning' : r.type === 'Phòng họp' ? 'badge-primary' : 'badge-success'}">${r.type}</span>
-        <span style="font-size:0.75rem; color:var(--text-muted);">${r.date}</span>
+  container.innerHTML = unreadApprovals.map(r => {
+    const currentStep = r.workflow.find(w => w.action === "pending");
+    const stepLabel = currentStep ? `[Bước: ${currentStep.step}]` : '';
+    
+    return `
+      <div class="card" style="padding:16px; border-color:var(--warning-light);">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <span class="badge ${r.type === 'Nghỉ phép' || r.type === 'Nghỉ phép năm' ? 'badge-danger' : r.type === 'Xe công' || r.type === 'Đăng ký xe công vụ' ? 'badge-warning' : r.type === 'Phòng họp' || r.type === 'Đăng ký phòng họp' ? 'badge-primary' : 'badge-success'}">${r.type}</span>
+          <span style="font-size:0.75rem; color:var(--text-muted);">${r.date}</span>
+        </div>
+        <div style="font-size:0.9rem; font-weight:700; margin-bottom:4px;">Người gửi: ${r.userName} (${r.dept})</div>
+        <div style="font-size:0.75rem; color:var(--primary); font-weight:600; margin-bottom:6px;">${stepLabel}</div>
+        <p style="font-size:0.85rem; color:var(--text-secondary); line-height:1.4; margin-bottom:12px;">${r.content}</p>
+        
+        <div style="display:flex; gap:8px; border-top:1px solid var(--border-light); padding-top:12px;">
+          <button class="btn btn-success btn-sm" onclick="approveRequest(${r.id}, 'approved')" style="flex:1;"><span class="material-symbols-outlined" style="font-size:14px;">done</span> Duyệt đơn</button>
+          <button class="btn btn-danger btn-sm" onclick="approveRequest(${r.id}, 'rejected')" style="flex:1;"><span class="material-symbols-outlined" style="font-size:14px;">close</span> Từ chối</button>
+        </div>
       </div>
-      <div style="font-size:0.9rem; font-weight:700; margin-bottom:4px;">Người gửi: ${r.userName} (${r.dept})</div>
-      <p style="font-size:0.85rem; color:var(--text-secondary); line-height:1.4; margin-bottom:12px;">${r.content}</p>
-      
-      <div style="display:flex; gap:8px; border-top:1px solid var(--border-light); padding-top:12px;">
-        <button class="btn btn-success btn-sm" onclick="approveRequest(${r.id}, 'approved')" style="flex:1;"><span class="material-symbols-outlined" style="font-size:14px;">done</span> Duyệt đơn</button>
-        <button class="btn btn-danger btn-sm" onclick="approveRequest(${r.id}, 'rejected')" style="flex:1;"><span class="material-symbols-outlined" style="font-size:14px;">close</span> Từ chối</button>
-      </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 }
 
 function showRequestDetail(id) {
@@ -1929,14 +2202,12 @@ function submitNewRequest() {
   
   const now = new Date();
   const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   
   let content = "";
   let details = {};
-  let workflow = [
-    { step: "Gửi yêu cầu", actor: state.currentUser.name, action: "submit", date: dateStr + " " + String(now.getHours()).padStart(2, '0') + ":" + String(now.getMinutes()).padStart(2, '0'), comment: reason }
-  ];
   
-  if (type === "Nghỉ phép") {
+  if (type === "Nghỉ phép" || type === "Nghỉ phép năm") {
     const start = document.getElementById("reqLeaveStart").value;
     const end = document.getElementById("reqLeaveEnd").value;
     const handover = document.getElementById("reqLeaveBànGiao").value.trim();
@@ -1946,11 +2217,7 @@ function submitNewRequest() {
     }
     content = `Xin nghỉ phép từ ${start} đến ${end}. Người bàn giao: ${handover}. Lý do: ${reason}`;
     details = { start, end, handover };
-    workflow.push(
-      { step: "Trưởng phòng duyệt", actor: "Đỗ Văn K (TP Kinh doanh)", action: "pending", date: "", comment: "" },
-      { step: "Nhân sự xác nhận", actor: "Lê Thị Hồng", action: "pending", date: "", comment: "" }
-    );
-  } else if (type === "Xe công") {
+  } else if (type === "Xe công" || type === "Đăng ký xe công vụ") {
     const route = document.getElementById("reqCarRoute").value.trim();
     const date = document.getElementById("reqCarDate").value;
     const pass = document.getElementById("reqCarPassengers").value;
@@ -1960,10 +2227,7 @@ function submitNewRequest() {
     }
     content = `Đăng ký xe di chuyển lộ trình ${route} vào ngày ${date}. Số người: ${pass}. Lý do: ${reason}`;
     details = { route, date, passengers: pass };
-    workflow.push(
-      { step: "Ban Giám đốc duyệt", actor: "Nguyễn Văn An", action: "pending", date: "", comment: "" }
-    );
-  } else if (type === "Phòng họp") {
+  } else if (type === "Phòng họp" || type === "Đăng ký phòng họp") {
     const room = document.getElementById("reqRoomName").value;
     const date = document.getElementById("reqRoomDate").value;
     const start = document.getElementById("reqRoomStart").value;
@@ -1974,23 +2238,39 @@ function submitNewRequest() {
     }
     content = `Đặt phòng họp: ${room} ngày ${date} từ ${start} đến ${end}. Chủ trì họp: ${state.currentUser.name}`;
     details = { room, date, start, end };
-    workflow.push(
-      { step: "Hành chính duyệt", actor: "Trần Thị Bình", action: "pending", date: "", comment: "" }
-    );
-  } else if (type === "Công tác") {
-    const dest = document.getElementById("reqTravelDest").value.trim();
-    const start = document.getElementById("reqTravelStart").value;
-    const end = document.getElementById("reqTravelEnd").value;
-    if (!dest || !start || !end) {
-      showToast("Vui lòng điền đủ điểm đến và ngày công tác", "warning");
-      return;
-    }
-    content = `Đăng ký đi công tác tại ${dest} từ ngày ${start} đến ${end}. Lý do: ${reason}`;
-    details = { dest, start, end };
-    workflow.push(
-      { step: "Trưởng phòng duyệt", actor: "Trưởng phòng Kinh doanh", action: "pending", date: "", comment: "" },
-      { step: "Giám đốc duyệt cuối", actor: "Nguyễn Văn An", action: "pending", date: "", comment: "" }
-    );
+  } else {
+    // General or custom dynamic form request
+    content = `Đề xuất đăng ký dịch vụ/quy trình: ${type}. Lý do & Nội dung: ${reason}`;
+    details = { reason };
+  }
+  
+  // Construct workflow steps dynamically from state.procedureWorkflows
+  const workflow = [
+    { step: "Gửi yêu cầu", actor: state.currentUser.name, action: "submit", date: dateStr + " " + timeStr, comment: reason }
+  ];
+  
+  const configSteps = state.procedureWorkflows[type] || [];
+  if (configSteps.length > 0) {
+    configSteps.forEach(step => {
+      workflow.push({
+        step: step.stepName,
+        actor: step.approverName,
+        approverKey: step.approverKey,
+        action: "pending",
+        date: "",
+        comment: ""
+      });
+    });
+  } else {
+    // Default fallback workflow: Admin approves
+    workflow.push({
+      step: "Phê duyệt Hành chính",
+      actor: "Nguyễn Văn An",
+      approverKey: "admin",
+      action: "pending",
+      date: "",
+      comment: ""
+    });
   }
   
   const newReq = {
@@ -2017,32 +2297,61 @@ function submitNewRequest() {
   renderDashboard();
 }
 
-function approveRequest(id, newStatus) {
+function approveRequest(id, actionType) {
   const req = state.requests.find(r => r.id === id);
   if (!req) return;
   
-  req.status = newStatus;
+  const now = new Date();
+  const timeStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   
-  // Find current pending step in workflow
-  const pendingStep = req.workflow.find(w => w.action === "pending");
-  if (pendingStep) {
-    pendingStep.action = newStatus === "approved" ? "approve" : "reject";
+  // Find the step currently pending
+  const pendingIndex = req.workflow.findIndex(w => w.action === "pending");
+  if (pendingIndex === -1) return;
+  
+  const pendingStep = req.workflow[pendingIndex];
+  
+  if (actionType === "approved") {
+    pendingStep.action = "approve";
     pendingStep.actor = state.currentUser.name;
-    const now = new Date();
-    pendingStep.date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    pendingStep.comment = newStatus === "approved" ? "Đồng ý phê duyệt đề xuất." : "Không đồng ý phê duyệt.";
+    pendingStep.date = timeStr;
+    pendingStep.comment = "Đồng ý phê duyệt đề xuất.";
+    
+    // Check if there is a next pending step
+    const hasNextStep = req.workflow.slice(pendingIndex + 1).some(w => w.action === "pending");
+    if (!hasNextStep) {
+      // Last step approved -> complete workflow
+      req.status = "approved";
+    } else {
+      // Workflow still in progress
+      req.status = "pending";
+    }
+  } else {
+    // Rejected
+    pendingStep.action = "reject";
+    pendingStep.actor = state.currentUser.name;
+    pendingStep.date = timeStr;
+    pendingStep.comment = "Không đồng ý phê duyệt.";
+    req.status = "rejected";
+    
+    // Cancel any subsequent pending steps
+    for (let i = pendingIndex + 1; i < req.workflow.length; i++) {
+      if (req.workflow[i].action === "pending") {
+        req.workflow[i].action = "rejected";
+        req.workflow[i].comment = "Luồng duyệt bị gián đoạn.";
+      }
+    }
   }
   
   saveState("requests", state.requests);
-  showToast(newStatus === "approved" ? "Đã phê duyệt đề xuất!" : "Đã từ chối đề xuất.", newStatus === "approved" ? "success" : "danger");
+  showToast(actionType === "approved" ? "Đã phê duyệt đề xuất!" : "Đã từ chối đề xuất.", actionType === "approved" ? "success" : "danger");
   
   // Add notification to employee
   state.notifications.unshift({
     id: state.notifications.length + 1,
-    title: newStatus === "approved" ? "Đơn đăng ký được phê duyệt" : "Đơn đăng ký bị từ chối",
-    desc: `Đơn xin ${req.type} gửi ngày ${req.date} đã được xử lý bởi ${state.currentUser.name}.`,
+    title: req.status === "approved" ? "Yêu cầu đã được phê duyệt hoàn tất" : req.status === "rejected" ? "Yêu cầu bị từ chối" : "Yêu cầu đã qua bước duyệt tiếp theo",
+    desc: `Yêu cầu xin ${req.type} của bạn đã được cập nhật bởi ${state.currentUser.name}.`,
     time: "Vừa xong",
-    type: newStatus === "approved" ? "success" : "warning",
+    type: req.status === "approved" ? "success" : req.status === "rejected" ? "warning" : "info",
     unread: true,
     link: "requests"
   });
@@ -3035,6 +3344,9 @@ carouselContainer.innerHTML = `
   if (totalEl) {
     totalEl.textContent = state.documents.length;
   }
+  
+  // Render user dynamic forms list
+  renderDynamicFormsListUser();
 }
 
 // Save Settings Form
@@ -3058,7 +3370,8 @@ function saveSettings() {
 let activeAdminSubtab = "analytics";
 
 function renderAdminView() {
-  if (state.currentUser.username !== "admin") {
+  const isUserAdmin = state.currentUser.username === "admin" || (state.currentUser.permissions && state.currentUser.permissions.isAdmin);
+  if (!isUserAdmin) {
     switchView("dashboard");
     return;
   }
@@ -3066,13 +3379,13 @@ function renderAdminView() {
   // Fill department options for adding users
   const deptSelect = document.getElementById("newUserDept");
   if (deptSelect) {
-    deptSelect.innerHTML = DEPARTMENTS.map(d => `<option value="${d}">${d}</option>`).join('');
+    deptSelect.innerHTML = state.departments.map(d => `<option value="${d}">${d}</option>`).join('');
   }
   
   const filterDeptSelect = document.getElementById("adminFilterUserDept");
   if (filterDeptSelect && filterDeptSelect.children.length <= 1) {
     filterDeptSelect.innerHTML = `<option value="all">Tất cả phòng ban</option>` + 
-      DEPARTMENTS.map(d => `<option value="${d}">${d}</option>`).join('');
+      state.departments.map(d => `<option value="${d}">${d}</option>`).join('');
   }
   
   // Dispatch active sub-tab renders
@@ -3112,6 +3425,20 @@ function switchAdminTab(subTabId) {
     renderAdminTaxonomies();
   } else if (subTabId === "announcements") {
     renderAdminAnnouncementsTable();
+  } else if (subTabId === "workflows") {
+    const procSelect = document.getElementById("workflowProcSelect");
+    if (procSelect) {
+      procSelect.innerHTML = state.procedureTypes.map(p => `<option value="${p}">${p}</option>`).join('');
+      procSelect.value = selectedWorkflowProc;
+    }
+    changeWorkflowProc();
+  } else if (subTabId === "tabs") {
+    renderAdminTabs();
+  } else if (subTabId === "eforms") {
+    renderAdminEForms();
+    if (selectedReportFormId) {
+      renderEFormReportingDashboard();
+    }
   }
 }
 
@@ -3153,8 +3480,30 @@ function renderAdminUsersTable() {
   }
   
   tbody.innerHTML = list.map((u, index) => {
-    // Find absolute index in directory
     const absIndex = DIRECTORY.findIndex(x => x.email === u.email);
+    const accountKey = Object.keys(state.users).find(k => state.users[k].name === u.name || state.users[k].email === u.email);
+    
+    let permissionsHtml = '';
+    if (accountKey) {
+      const userAcc = state.users[accountKey];
+      if (!userAcc.permissions) {
+        userAcc.permissions = { isAdmin: false, canPostNews: false, canUploadDocs: false, canManageProcedures: false };
+      }
+      
+      const p = userAcc.permissions;
+      permissionsHtml = `
+        <div style="display:flex; gap:12px; font-size:0.78rem; align-items:center;">
+          <label style="display:flex; align-items:center; gap:3px; margin:0;"><input type="checkbox" ${p.isAdmin ? 'checked' : ''} onclick="updateUserPermission('${accountKey}', 'isAdmin', this.checked)" ${accountKey === 'admin' ? 'disabled' : ''}> Admin</label>
+          <label style="display:flex; align-items:center; gap:3px; margin:0;"><input type="checkbox" ${p.canPostNews ? 'checked' : ''} onclick="updateUserPermission('${accountKey}', 'canPostNews', this.checked)"> Đăng tin</label>
+          <label style="display:flex; align-items:center; gap:3px; margin:0;"><input type="checkbox" ${p.canUploadDocs ? 'checked' : ''} onclick="updateUserPermission('${accountKey}', 'canUploadDocs', this.checked)"> Đăng VB</label>
+          <label style="display:flex; align-items:center; gap:3px; margin:0;"><input type="checkbox" ${p.canManageProcedures ? 'checked' : ''} onclick="updateUserPermission('${accountKey}', 'canManageProcedures', this.checked)"> Luồng duyệt</label>
+        </div>
+      `;
+    } else {
+      permissionsHtml = `
+        <button class="btn btn-outline btn-xs" onclick="createLoginAccount('${u.name}', '${u.title}', '${u.dept}', '${u.email}', '${u.phone}', '${u.initials}', '${u.color}')" style="padding: 2px 6px; font-size: 0.72rem;">Cấp tài khoản</button>
+      `;
+    }
     
     return `
       <tr>
@@ -3166,9 +3515,8 @@ function renderAdminUsersTable() {
         </td>
         <td>${u.title}</td>
         <td>${u.dept}</td>
-        <td><a href="mailto:${u.email}">${u.email}</a></td>
         <td><strong>${u.ext}</strong></td>
-        <td>${u.phone}</td>
+        <td style="min-width: 250px;">${permissionsHtml}</td>
         <td>
           <button class="action-icon-btn edit" onclick="editUserAction(${absIndex})" title="Chỉnh sửa"><span class="material-symbols-outlined" style="font-size:16px;">edit</span></button>
           <button class="action-icon-btn delete" onclick="deleteUserAction(${absIndex})" title="Xóa"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>
@@ -3176,6 +3524,70 @@ function renderAdminUsersTable() {
       </tr>
     `;
   }).join('');
+}
+
+function updateUserPermission(accountKey, permissionKey, value) {
+  if (!state.users[accountKey]) return;
+  if (!state.users[accountKey].permissions) {
+    state.users[accountKey].permissions = { isAdmin: false, canPostNews: false, canUploadDocs: false, canManageProcedures: false };
+  }
+  state.users[accountKey].permissions[permissionKey] = value;
+  saveState("users", state.users);
+  showToast(`Đã cập nhật quyền của tài khoản ${state.users[accountKey].name}`, "success");
+  
+  if (state.currentUser.username === accountKey) {
+    state.currentUser = state.users[accountKey];
+    updateUserProfileHeader();
+    const isUserAdmin = state.currentUser.username === "admin" || (state.currentUser.permissions && state.currentUser.permissions.isAdmin);
+    if (!isUserAdmin && state.activeView === "admin") {
+      switchView("dashboard");
+    }
+  }
+  
+  renderAdminUsersTable();
+}
+
+function createLoginAccount(name, role, dept, email, phone, initials, color) {
+  const username = email.split('@')[0].replace(/\./g, '_');
+  if (state.users[username]) {
+    showToast("Tài khoản đã tồn tại trên hệ thống", "warning");
+    return;
+  }
+  
+  state.users[username] = {
+    username: username,
+    name: name,
+    role: role,
+    dept: dept,
+    empId: "EMP" + String(100 + Object.keys(state.users).length).padStart(3, '0'),
+    email: email,
+    phone: phone,
+    ext: "300",
+    initials: initials,
+    color: color || "#0284c7",
+    permissions: {
+      isAdmin: false,
+      canPostNews: false,
+      canUploadDocs: false,
+      canManageProcedures: false
+    }
+  };
+  
+  saveState("users", state.users);
+  showToast(`Đã cấp tài khoản đăng nhập cho ${name}`, "success");
+  updateLoginSelectOptions();
+  renderAdminUsersTable();
+}
+
+function updateLoginSelectOptions() {
+  const loginSelect = document.getElementById("loginUser");
+  if (loginSelect) {
+    loginSelect.innerHTML = Object.keys(state.users).map(k => {
+      const u = state.users[k];
+      const isAdm = u.username === 'admin' || (u.permissions && u.permissions.isAdmin);
+      return `<option value="${u.username}">${u.name} - ${u.role} (${isAdm ? 'Admin' : 'Nhân sự'})</option>`;
+    }).join('');
+  }
 }
 
 function filterAdminUsersTable() {
@@ -3391,6 +3803,16 @@ function populateTaxonomyDropdowns() {
     filterDocType.innerHTML = filterHtml;
     newDocType.innerHTML = formHtml;
   }
+
+  // 4. Departments
+  const filterDocDept = document.getElementById("filterDocDept");
+  if (filterDocDept) {
+    let filterHtml = '<option value="all">Tất cả đơn vị</option>';
+    state.departments.forEach(d => {
+      filterHtml += `<option value="${d}">${d}</option>`;
+    });
+    filterDocDept.innerHTML = filterHtml;
+  }
 }
 
 function renderAdminTaxonomies() {
@@ -3398,6 +3820,8 @@ function renderAdminTaxonomies() {
   document.getElementById("count-rooms").textContent = `${state.rooms.length} phòng`;
   document.getElementById("count-docs").textContent = `${state.docCategories.length} loại`;
   document.getElementById("count-events").textContent = `${state.eventTypes.length} loại`;
+  document.getElementById("count-depts").textContent = `${state.departments.length} phòng ban`;
+  document.getElementById("count-procs").textContent = `${state.procedureTypes.length} thủ tục`;
   
   // Render lists
   const renderList = (containerId, items, type) => {
@@ -3422,6 +3846,8 @@ function renderAdminTaxonomies() {
   renderList("rooms-list-container", state.rooms, "rooms");
   renderList("doc-categories-list-container", state.docCategories, "docCategories");
   renderList("event-types-list-container", state.eventTypes, "eventTypes");
+  renderList("depts-list-container", state.departments, "departments");
+  renderList("procs-list-container", state.procedureTypes, "procedureTypes");
 }
 
 function addTaxonomyItem(type) {
@@ -3429,6 +3855,8 @@ function addTaxonomyItem(type) {
   if (type === "rooms") inputId = "addRoomInput";
   else if (type === "docCategories") inputId = "addDocCatInput";
   else if (type === "eventTypes") inputId = "addEventTypeInput";
+  else if (type === "departments") inputId = "addDeptInput";
+  else if (type === "procedureTypes") inputId = "addProcTypeInput";
   
   const input = document.getElementById(inputId);
   if (!input) return;
@@ -3458,6 +3886,7 @@ function addTaxonomyItem(type) {
   // If calendar or documents lists are active, refresh them
   if (state.activeView === "calendar") renderCalendar();
   if (state.activeView === "documents") renderDocuments();
+  if (state.activeView === "requests") renderRequestsView();
   
   showToast("Đã thêm danh mục thành công!", "success");
 }
@@ -3478,7 +3907,703 @@ function deleteTaxonomyItem(type, index) {
     // Refresh views if open
     if (state.activeView === "calendar") renderCalendar();
     if (state.activeView === "documents") renderDocuments();
+    if (state.activeView === "requests") renderRequestsView();
     
     showToast("Đã xóa danh mục thành công!", "success");
+  }
+}
+
+// ==========================================
+// DYNAMIC APPROVAL WORKFLOW SETTINGS
+// ==========================================
+let selectedWorkflowProc = "Nghỉ phép năm";
+let currentWorkflowSteps = [];
+
+function changeWorkflowProc() {
+  selectedWorkflowProc = document.getElementById("workflowProcSelect").value;
+  currentWorkflowSteps = JSON.parse(JSON.stringify(state.procedureWorkflows[selectedWorkflowProc] || []));
+  renderWorkflowDesignTimeline();
+}
+
+function renderWorkflowDesignTimeline() {
+  const timelineEl = document.getElementById("workflowDesignTimeline");
+  if (!timelineEl) return;
+  
+  if (!currentWorkflowSteps || currentWorkflowSteps.length === 0) {
+    timelineEl.innerHTML = `
+      <div style="text-align: center; padding: 20px; color: var(--text-muted); font-style: italic;">
+        <span class="material-symbols-outlined" style="font-size:24px; vertical-align:middle; margin-right:4px;">alt_route</span>
+        Chưa có bước phê duyệt nào được cấu hình cho thủ tục này.
+      </div>
+    `;
+    return;
+  }
+  
+  timelineEl.innerHTML = currentWorkflowSteps.map((step, idx) => `
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px; background: #f8fafc; border: 1px solid var(--border-light); padding: 12px; border-radius: 6px;">
+      <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.85rem;">
+        ${idx + 1}
+      </div>
+      <div style="flex: 1;">
+        <div style="font-size: 0.88rem; font-weight: 700; color: var(--text);">${step.stepName}</div>
+        <div style="font-size: 0.8rem; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; margin-top: 2px;">
+          <span class="material-symbols-outlined" style="font-size:12px;">person</span>
+          Người duyệt: <strong>${step.approverName}</strong> (${step.approverKey})
+        </div>
+      </div>
+      <button onclick="deleteWorkflowStep(${idx})" style="background: none; border: none; color: var(--danger); cursor: pointer; padding: 4px; display: flex; align-items: center;">
+        <span class="material-symbols-outlined" style="font-size: 18px;">delete</span>
+      </button>
+    </div>
+  `).join('');
+}
+
+function openAddWorkflowStepModal() {
+  document.getElementById("newStepName").value = "";
+  
+  // Populate approver select options dynamically from state.users
+  const select = document.getElementById("newStepApprover");
+  if (select) {
+    select.innerHTML = Object.keys(state.users).map(k => {
+      const u = state.users[k];
+      return `<option value="${u.username}">${u.name} (${u.role})</option>`;
+    }).join('');
+  }
+  
+  openModal("modalAddWorkflowStep");
+}
+
+function submitAddWorkflowStep() {
+  const stepName = document.getElementById("newStepName").value.trim();
+  const approverKey = document.getElementById("newStepApprover").value;
+  
+  if (!stepName) {
+    showToast("Vui lòng nhập tên bước phê duyệt", "warning");
+    return;
+  }
+  
+  const approverUser = state.users[approverKey];
+  if (!approverUser) return;
+  
+  currentWorkflowSteps.push({
+    stepName: stepName,
+    approverName: approverUser.name,
+    approverKey: approverKey
+  });
+  
+  renderWorkflowDesignTimeline();
+  closeModal("modalAddWorkflowStep");
+  showToast("Đã thêm bước phê duyệt", "success");
+}
+
+function deleteWorkflowStep(index) {
+  currentWorkflowSteps.splice(index, 1);
+  renderWorkflowDesignTimeline();
+}
+
+function saveWorkflowConfig() {
+  state.procedureWorkflows[selectedWorkflowProc] = JSON.parse(JSON.stringify(currentWorkflowSteps));
+  saveState("procedureWorkflows", state.procedureWorkflows);
+  showToast(`Đã lưu cấu hình luồng phê duyệt cho thủ tục "${selectedWorkflowProc}"`, "success");
+}
+
+// ==========================================
+// DYNAMIC MAIN TABS & NAVIGATION CONFIG
+// ==========================================
+const TAB_LABELS = {
+  "dashboard": { label: "Trang chủ", icon: "dashboard" },
+  "calendar": { label: "Lịch công tác", icon: "calendar_month" },
+  "news": { label: "Tin tức & Thông báo", icon: "newspaper" },
+  "documents": { label: "Văn bản nội bộ", icon: "folder_open" },
+  "requests": { label: "Yêu cầu / Trình duyệt", icon: "assignment_turned_in" },
+  "directory": { label: "Danh bạ nhân sự", icon: "contacts" },
+  "surveys": { label: "Khảo sát ý kiến", icon: "poll" },
+  "albums": { label: "Thư viện ảnh", icon: "photo_library" }
+};
+
+function renderAdminTabs() {
+  const container = document.getElementById("adminTabsListContainer");
+  if (!container) return;
+  
+  container.innerHTML = Object.keys(TAB_LABELS).map(tabId => {
+    const isVisible = state.activeTabs.includes(tabId);
+    const info = TAB_LABELS[tabId];
+    
+    return `
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: white; border: 1px solid var(--border-light); border-radius: 6px; margin-bottom: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span class="material-symbols-outlined" style="color: var(--primary);">${info.icon}</span>
+          <strong style="font-size: 0.88rem; color: var(--text);">${info.label}</strong>
+          <span style="font-size: 0.72rem; color: var(--text-muted); font-family: monospace;">(${tabId})</span>
+        </div>
+        <label class="switch-toggle" style="position: relative; display: inline-block; width: 40px; height: 22px; margin: 0;">
+          <input type="checkbox" ${isVisible ? 'checked' : ''} onchange="toggleTabVisibility('${tabId}', this.checked)" style="opacity: 0; width: 0; height: 0;">
+          <span style="position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #cbd5e1; transition: .3s; border-radius: 34px;" class="toggle-slider-bar"></span>
+        </label>
+      </div>
+    `;
+  }).join('');
+  
+  // Custom switch styles
+  injectSwitchToggleCss();
+}
+
+function toggleTabVisibility(tabId, visible) {
+  if (visible) {
+    if (!state.activeTabs.includes(tabId)) {
+      state.activeTabs.push(tabId);
+    }
+  } else {
+    // Keep dashboard always visible
+    if (tabId === "dashboard") {
+      showToast("Không thể ẩn tab Trang chủ", "warning");
+      renderAdminTabs();
+      return;
+    }
+    state.activeTabs = state.activeTabs.filter(t => t !== tabId);
+  }
+  
+  saveState("activeTabs", state.activeTabs);
+  updateNavbarTabs();
+  showToast("Đã cập nhật cấu trúc thanh điều hướng!", "success");
+}
+
+function updateNavbarTabs() {
+  const navbar = document.getElementById("mainNavbarTabs");
+  if (!navbar) return;
+  
+  navbar.innerHTML = state.activeTabs.map(tabId => {
+    const info = TAB_LABELS[tabId];
+    if (!info) return '';
+    const isActive = state.activeView === tabId;
+    
+    return `
+      <div class="nav-tab-item ${isActive ? 'active' : ''}" id="tab-${tabId}" onclick="switchView('${tabId}')">
+        <span class="material-symbols-outlined">${info.icon}</span>
+        ${info.label}
+      </div>
+    `;
+  }).join('') + `
+    <!-- Admin tab is handled dynamically based on role -->
+    <div class="nav-tab-item" id="tab-admin" onclick="switchView('admin')" style="display: none; border-left: 1px solid var(--border-light); margin-left: auto;">
+      <span class="material-symbols-outlined" style="color: var(--warning);">shield_person</span>
+      Quản trị hệ thống
+    </div>
+  `;
+  
+  // Re-run profile info toggle to show/hide admin tab
+  updateUserProfileHeader();
+}
+
+function injectSwitchToggleCss() {
+  if (document.getElementById("injectedSwitchToggleCss")) return;
+  const style = document.createElement("style");
+  style.id = "injectedSwitchToggleCss";
+  style.innerHTML = `
+    .switch-toggle input:checked + .toggle-slider-bar {
+      background-color: var(--primary) !important;
+    }
+    .switch-toggle .toggle-slider-bar::before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+    .switch-toggle input:checked + .toggle-slider-bar::before {
+      transform: translateX(18px);
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// ==========================================
+// DYNAMIC E-FORMS & CHART REPORTING
+// ==========================================
+let currentEFormFields = [];
+
+function openCreateEFormModal() {
+  currentEFormFields = [
+    { label: "Họ và tên", type: "text", required: true, id: "field_name" }
+  ];
+  renderCreateEFormFieldsList();
+  document.getElementById("newEFormName").value = "";
+  document.getElementById("newEFormDesc").value = "";
+  openModal("modalCreateEForm");
+}
+
+function renderCreateEFormFieldsList() {
+  const container = document.getElementById("createEFormFieldsList");
+  if (!container) return;
+  
+  container.innerHTML = currentEFormFields.map((f, idx) => `
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; background: #f1f5f9; padding: 8px 12px; border-radius: 4px;">
+      <span style="font-size:0.8rem; font-weight:700; color:var(--text-secondary); width: 24px;">#${idx+1}</span>
+      <div style="flex:1; display:flex; gap:8px;">
+        <input type="text" value="${f.label}" onchange="updateEFormFieldLabel(${idx}, this.value)" placeholder="Tên trường nhập liệu" style="flex: 2; padding: 4px 8px; font-size: 0.8rem; border: 1px solid var(--border-light); border-radius: 4px;">
+        <select onchange="updateEFormFieldType(${idx}, this.value)" style="flex: 1; padding: 4px 8px; font-size: 0.8rem; border: 1px solid var(--border-light); border-radius: 4px;">
+          <option value="text" ${f.type === 'text' ? 'selected' : ''}>Chữ ngắn (text)</option>
+          <option value="number" ${f.type === 'number' ? 'selected' : ''}>Số (number)</option>
+          <option value="textarea" ${f.type === 'textarea' ? 'selected' : ''}>Chữ dài (textarea)</option>
+        </select>
+      </div>
+      <label style="display:flex; align-items:center; gap:2px; font-size:0.75rem; margin:0;"><input type="checkbox" ${f.required ? 'checked' : ''} onchange="updateEFormFieldRequired(${idx}, this.checked)"> Bắt buộc</label>
+      <button onclick="deleteEFormField(${idx})" style="background:none; border:none; color:var(--danger); cursor:pointer; display:flex; align-items:center; padding:2px;">
+        <span class="material-symbols-outlined" style="font-size:16px;">delete</span>
+      </button>
+    </div>
+  `).join('');
+}
+
+function addEFormField() {
+  const id = "field_" + Date.now() + "_" + Math.random().toString(36).substring(2, 5);
+  currentEFormFields.push({
+    label: "Trường dữ liệu mới",
+    type: "text",
+    required: false,
+    id: id
+  });
+  renderCreateEFormFieldsList();
+}
+
+function deleteEFormField(idx) {
+  currentEFormFields.splice(idx, 1);
+  renderCreateEFormFieldsList();
+}
+
+function updateEFormFieldLabel(idx, val) {
+  currentEFormFields[idx].label = val;
+}
+
+function updateEFormFieldType(idx, val) {
+  currentEFormFields[idx].type = val;
+}
+
+function updateEFormFieldRequired(idx, val) {
+  currentEFormFields[idx].required = val;
+}
+
+function submitCreateEForm() {
+  const name = document.getElementById("newEFormName").value.trim();
+  const desc = document.getElementById("newEFormDesc").value.trim();
+  
+  if (!name) {
+    showToast("Vui lòng điền tên biểu mẫu eForm", "warning");
+    return;
+  }
+  
+  if (currentEFormFields.length === 0) {
+    showToast("Vui lòng thêm ít nhất một trường nhập liệu", "warning");
+    return;
+  }
+  
+  const formId = "form-" + Date.now();
+  
+  const newForm = {
+    id: formId,
+    name: name,
+    description: desc,
+    fields: currentEFormFields,
+    submissions: []
+  };
+  
+  state.dynamicForms.push(newForm);
+  saveState("dynamicForms", state.dynamicForms);
+  
+  // Re-render
+  renderAdminEForms();
+  renderDynamicFormsListUser();
+  closeModal("modalCreateEForm");
+  showToast("Tạo eForm mới thành công!", "success");
+}
+
+function renderAdminEForms() {
+  const listContainer = document.getElementById("adminEFormsListContainer");
+  const submissionsContainer = document.getElementById("adminEFormSubmissionsContainer");
+  if (!listContainer || !submissionsContainer) return;
+  
+  if (state.dynamicForms.length === 0) {
+    listContainer.innerHTML = `<div style="padding:15px; text-align:center; color:var(--text-muted); font-style:italic;">Chưa có eForm nào</div>`;
+    submissionsContainer.innerHTML = `<div style="padding:15px; text-align:center; color:var(--text-muted); font-style:italic;">Chưa chọn eForm để xem thống kê</div>`;
+    return;
+  }
+  
+  listContainer.innerHTML = state.dynamicForms.map(form => `
+    <div style="padding:12px; background:white; border:1px solid var(--border-light); border-radius:6px; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+      <div>
+        <strong style="font-size:0.88rem; color:var(--text);">${form.name}</strong>
+        <div style="font-size:0.75rem; color:var(--text-secondary); margin-top:2px;">Số lượt điền: <span class="badge badge-primary">${form.submissions.length}</span></div>
+      </div>
+      <div style="display:flex; gap:6px;">
+        <button class="btn btn-outline btn-xs" onclick="selectEFormForReporting('${form.id}')">Xem báo cáo</button>
+        <button class="btn btn-danger btn-xs" onclick="deleteEForm('${form.id}')"><span class="material-symbols-outlined" style="font-size:12px;">delete</span></button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function deleteEForm(formId) {
+  if (confirm("Bạn có chắc chắn muốn xóa biểu mẫu eForm này không?")) {
+    state.dynamicForms = state.dynamicForms.filter(f => f.id !== formId);
+    saveState("dynamicForms", state.dynamicForms);
+    renderAdminEForms();
+    renderDynamicFormsListUser();
+    showToast("Đã xóa eForm thành công", "success");
+  }
+}
+
+let selectedReportFormId = null;
+let reportChartType = "bar"; // default
+
+function selectEFormForReporting(formId) {
+  selectedReportFormId = formId;
+  renderEFormReportingDashboard();
+}
+
+function changeReportChartType(type) {
+  reportChartType = type;
+  renderEFormReportingDashboard();
+}
+
+function renderEFormReportingDashboard() {
+  const container = document.getElementById("adminEFormSubmissionsContainer");
+  if (!container || !selectedReportFormId) return;
+  
+  const form = state.dynamicForms.find(f => f.id === selectedReportFormId);
+  if (!form) return;
+  
+  // Render structure: Chart selectors + Chart Drawing Area + Data Table
+  let html = `
+    <div style="margin-bottom: 20px; background: white; border:1px solid var(--border-light); padding:16px; border-radius:8px;">
+      <h3 style="font-size: 1.05rem; font-weight:700; color:var(--text); margin-bottom:4px;">${form.name}</h3>
+      <p style="font-size: 0.8rem; color:var(--text-secondary); margin-bottom:12px;">${form.description || 'Không có mô tả'}</p>
+      
+      <!-- Chart Selector Row -->
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-light); padding-bottom:12px; margin-bottom:16px;">
+        <span style="font-weight:600; font-size:0.85rem; color:var(--text);">Biểu đồ thống kê kết quả</span>
+        <div style="display:flex; gap:6px;">
+          <button class="btn btn-xs ${reportChartType === 'bar' ? 'btn-primary' : 'btn-outline'}" onclick="changeReportChartType('bar')">Cột (Bar)</button>
+          <button class="btn btn-xs ${reportChartType === 'pie' ? 'btn-primary' : 'btn-outline'}" onclick="changeReportChartType('pie')">Tròn (Pie)</button>
+          <button class="btn btn-xs ${reportChartType === 'line' ? 'btn-primary' : 'btn-outline'}" onclick="changeReportChartType('line')">Đường (Line)</button>
+        </div>
+      </div>
+      
+      <!-- Chart Render Box -->
+      <div id="eformReportingChartContainer" style="display:flex; justify-content:center; align-items:center; padding:15px 0;">
+        <!-- Dynamic Chart Drawing -->
+        ${drawEFormReportingChart(form)}
+      </div>
+    </div>
+    
+    <!-- Submissions Table -->
+    <div style="background: white; border:1px solid var(--border-light); border-radius:8px; overflow:hidden;">
+      <div style="padding:12px 16px; border-bottom:1px solid var(--border-light); background:#f8fafc; font-weight:700; font-size:0.88rem; color:var(--text);">
+        Danh sách chi tiết ý kiến thu thập (${form.submissions.length} bản ghi)
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="table" style="margin:0; font-size:0.82rem;">
+          <thead>
+            <tr>
+              <th>Người nộp</th>
+              <th>Ngày nộp</th>
+              ${form.fields.map(f => `<th>${f.label}</th>`).join('')}
+            </tr>
+          </thead>
+          <tbody>
+            ${form.submissions.length === 0 ? `
+              <tr><td colspan="${form.fields.length + 2}" style="text-align:center; padding:20px; color:var(--text-muted); font-style:italic;">Chưa có phản hồi nào</td></tr>
+            ` : form.submissions.map(sub => `
+              <tr>
+                <td><strong>${sub.username}</strong></td>
+                <td>${sub.date}</td>
+                ${form.fields.map(f => `<td>${sub.data[f.id] !== undefined ? sub.data[f.id] : ''}</td>`).join('')}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+  
+  container.innerHTML = html;
+}
+
+function drawEFormReportingChart(form) {
+  if (!form.submissions || form.submissions.length === 0) {
+    return `<div style="text-align:center; font-size:0.8rem; color:var(--text-muted); padding:20px 0;">Cần ít nhất một phản hồi để vẽ biểu đồ</div>`;
+  }
+  
+  // Find a numeric or rating field to aggregate, or aggregate categories of a text field
+  let targetField = form.fields.find(f => f.type === 'number');
+  if (!targetField) targetField = form.fields[0]; // fallback
+  
+  // Count frequency of values
+  const frequencies = {};
+  form.submissions.forEach(sub => {
+    let val = sub.data[targetField.id];
+    if (val === undefined || val === null || val === '') val = "Trống";
+    frequencies[val] = (frequencies[val] || 0) + 1;
+  });
+  
+  const labels = Object.keys(frequencies);
+  const data = Object.values(frequencies);
+  const total = data.reduce((a, b) => a + b, 0);
+  
+  const colors = ["#0284c7", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#3b82f6", "#14b8a6"];
+  
+  if (reportChartType === "bar") {
+    // Generate simple SVG Bar Chart
+    const maxVal = Math.max(...data);
+    const height = 150;
+    const width = 380;
+    const barWidth = 35;
+    const spacing = 15;
+    const startX = 40;
+    
+    let barsSvg = '';
+    labels.forEach((label, idx) => {
+      const val = data[idx];
+      const barHeight = maxVal > 0 ? (val / maxVal) * 110 : 0;
+      const x = startX + idx * (barWidth + spacing);
+      const y = height - barHeight - 25;
+      const color = colors[idx % colors.length];
+      
+      barsSvg += `
+        <!-- Bar -->
+        <rect x="${x}" y="${y}" width="${barWidth}" height="${barHeight}" fill="${color}" rx="3" />
+        <!-- Value Label -->
+        <text x="${x + barWidth/2}" y="${y - 6}" font-size="9" font-weight="700" fill="var(--text)" text-anchor="middle">${val}</text>
+        <!-- Category Label -->
+        <text x="${x + barWidth/2}" y="${height - 8}" font-size="9" fill="var(--text-secondary)" text-anchor="middle">${String(label).substring(0, 8)}</text>
+      `;
+    });
+    
+    return `
+      <svg width="${width}" height="${height}" style="background:#f8fafc; border-radius:6px; border:1px solid var(--border-light)">
+        <!-- Grid horizontal lines -->
+        <line x1="30" y1="20" x2="${width-20}" y2="20" stroke="#e2e8f0" stroke-dasharray="3,3" />
+        <line x1="30" y1="75" x2="${width-20}" y2="75" stroke="#e2e8f0" stroke-dasharray="3,3" />
+        <line x1="30" y1="125" x2="${width-20}" y2="125" stroke="#e2e8f0" />
+        
+        <!-- Y-Axis indicators -->
+        <text x="25" y="24" font-size="8" fill="var(--text-muted)" text-anchor="end">${maxVal}</text>
+        <text x="25" y="79" font-size="8" fill="var(--text-muted)" text-anchor="end">${(maxVal/2).toFixed(1)}</text>
+        <text x="25" y="128" font-size="8" fill="var(--text-muted)" text-anchor="end">0</text>
+        
+        ${barsSvg}
+      </svg>
+    `;
+  } else if (reportChartType === "pie") {
+    // Render HTML Pie Chart utilizing conic-gradient CSS
+    let currentAngle = 0;
+    const gradientSlices = [];
+    
+    labels.forEach((label, idx) => {
+      const val = data[idx];
+      const percentage = (val / total) * 100;
+      const endAngle = currentAngle + (val / total) * 360;
+      const color = colors[idx % colors.length];
+      gradientSlices.push(`${color} ${currentAngle}deg ${endAngle}deg`);
+      currentAngle = endAngle;
+    });
+    
+    const conicGradient = gradientSlices.join(', ');
+    
+    // Legend list
+    const legendHtml = labels.map((label, idx) => {
+      const color = colors[idx % colors.length];
+      const val = data[idx];
+      const pct = ((val / total) * 100).toFixed(0);
+      return `
+        <div style="display:flex; align-items:center; gap:6px; font-size:0.78rem;">
+          <span style="width:10px; height:10px; border-radius:50%; background:${color}; display:inline-block;"></span>
+          <span style="color:var(--text-secondary)">${label}: <strong>${val} (${pct}%)</strong></span>
+        </div>
+      `;
+    }).join('');
+    
+    return `
+      <div style="display:flex; align-items:center; gap:24px; padding:10px;">
+        <div style="width:110px; height:110px; border-radius:50%; background:conic-gradient(${conicGradient}); box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);"></div>
+        <div style="display:flex; flex-direction:column; gap:4px; max-height:110px; overflow-y:auto;">
+          ${legendHtml}
+        </div>
+      </div>
+    `;
+  } else {
+    // Line chart
+    const maxVal = Math.max(...data);
+    const height = 150;
+    const width = 380;
+    const stepX = (width - 60) / (labels.length > 1 ? labels.length - 1 : 1);
+    const startX = 35;
+    
+    let points = [];
+    labels.forEach((label, idx) => {
+      const val = data[idx];
+      const x = startX + idx * stepX;
+      const y = maxVal > 0 ? (height - 25 - (val / maxVal) * 100) : height - 25;
+      points.push({x, y, val, label});
+    });
+    
+    const pathD = points.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+    
+    let nodesSvg = '';
+    points.forEach((p, idx) => {
+      const color = colors[idx % colors.length];
+      nodesSvg += `
+        <!-- Node -->
+        <circle cx="${p.x}" cy="${p.y}" r="4" fill="white" stroke="${color}" stroke-width="2" />
+        <!-- Value Label -->
+        <text x="${p.x}" y="${p.y - 8}" font-size="8" font-weight="700" fill="var(--text)" text-anchor="middle">${p.val}</text>
+        <!-- Category Label -->
+        <text x="${p.x}" y="${height - 8}" font-size="8" fill="var(--text-secondary)" text-anchor="middle">${String(p.label).substring(0, 8)}</text>
+      `;
+    });
+    
+    return `
+      <svg width="${width}" height="${height}" style="background:#f8fafc; border-radius:6px; border:1px solid var(--border-light)">
+        <!-- Grid horizontal lines -->
+        <line x1="30" y1="25" x2="${width-20}" y2="25" stroke="#e2e8f0" stroke-dasharray="3,3" />
+        <line x1="30" y1="125" x2="${width-20}" y2="125" stroke="#e2e8f0" />
+        
+        <!-- Y-Axis indicators -->
+        <text x="25" y="28" font-size="8" fill="var(--text-muted)" text-anchor="end">${maxVal}</text>
+        <text x="25" y="128" font-size="8" fill="var(--text-muted)" text-anchor="end">0</text>
+        
+        <!-- Line Path -->
+        <path d="${pathD}" fill="none" stroke="var(--primary)" stroke-width="2" />
+        
+        ${nodesSvg}
+      </svg>
+    `;
+  }
+}
+
+// User-facing E-Forms list in Dashboard/Home view
+function renderDynamicFormsListUser() {
+  const container = document.getElementById("dashboardDynamicFormsContainer");
+  if (!container) return;
+  
+  if (state.dynamicForms.length === 0) {
+    container.innerHTML = `<div style="padding:16px; text-align:center; color:var(--text-muted); font-size:0.82rem; font-style:italic;">Hiện tại không có biểu mẫu khảo sát trực tuyến nào cần thực hiện.</div>`;
+    return;
+  }
+  
+  container.innerHTML = state.dynamicForms.map(form => {
+    const isSubmitted = form.submissions.some(sub => sub.username === state.currentUser.username);
+    
+    return `
+      <div class="card" style="padding:16px; border-color:var(--border-light); display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom: 8px;">
+        <div style="flex:1;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <strong style="font-size:0.88rem; color:var(--text);">${form.name}</strong>
+            ${isSubmitted ? `<span class="badge badge-success" style="font-size:0.68rem; padding: 2px 6px;">Đã hoàn thành</span>` : `<span class="badge badge-warning" style="font-size:0.68rem; padding: 2px 6px;">Chưa hoàn thành</span>`}
+          </div>
+          <p style="font-size:0.8rem; color:var(--text-secondary); margin-top:4px; line-height:1.4;">${form.description || 'Vui lòng nhấn thực hiện để nhập tờ khai.'}</p>
+        </div>
+        <div>
+          ${isSubmitted ? `
+            <button class="btn btn-outline btn-sm" onclick="openEFormFillModal('${form.id}')" style="white-space:nowrap;">Xem lại</button>
+          ` : `
+            <button class="btn btn-primary btn-sm" onclick="openEFormFillModal('${form.id}')" style="white-space:nowrap;">Thực hiện</button>
+          `}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+let activeFillFormId = null;
+
+function openEFormFillModal(formId) {
+  activeFillFormId = formId;
+  const form = state.dynamicForms.find(f => f.id === formId);
+  if (!form) return;
+  
+  document.getElementById("eformFillTitle").textContent = form.name;
+  document.getElementById("eformFillDesc").textContent = form.description || '';
+  
+  const container = document.getElementById("eformFillFieldsContainer");
+  if (!container) return;
+  
+  // Check if current user has already submitted
+  const submission = form.submissions.find(sub => sub.username === state.currentUser.username);
+  
+  container.innerHTML = form.fields.map(f => {
+    const value = submission ? submission.data[f.id] : '';
+    const disabledAttr = submission ? 'disabled' : '';
+    const requiredSpan = f.required && !submission ? '<span style="color:var(--danger)">*</span>' : '';
+    
+    let fieldHtml = '';
+    if (f.type === 'textarea') {
+      fieldHtml = `<textarea id="fill_${f.id}" class="form-control" rows="3" ${disabledAttr} placeholder="Nhập câu trả lời...">${value}</textarea>`;
+    } else {
+      fieldHtml = `<input type="${f.type}" id="fill_${f.id}" class="form-control" value="${value}" ${disabledAttr} placeholder="Nhập câu trả lời..." />`;
+    }
+    
+    return `
+      <div class="form-group">
+        <label>${f.label} ${requiredSpan}</label>
+        ${fieldHtml}
+      </div>
+    `;
+  }).join('');
+  
+  // Show or hide submit button based on submission status
+  const submitBtn = document.getElementById("eformFillSubmitBtn");
+  if (submitBtn) {
+    submitBtn.style.display = submission ? 'none' : 'block';
+  }
+  
+  openModal("modalFillEForm");
+}
+
+function submitEFormFillData() {
+  if (!activeFillFormId) return;
+  
+  const form = state.dynamicForms.find(f => f.id === activeFillFormId);
+  if (!form) return;
+  
+  // Collect data
+  const data = {};
+  for (let f of form.fields) {
+    const el = document.getElementById(`fill_${f.id}`);
+    if (!el) continue;
+    
+    const val = el.value.trim();
+    if (f.required && !val) {
+      showToast(`Trường "${f.label}" là bắt buộc`, "warning");
+      return;
+    }
+    
+    // cast to number if type is number
+    data[f.id] = f.type === 'number' ? Number(val) : val;
+  }
+  
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  
+  form.submissions.push({
+    username: state.currentUser.username,
+    date: dateStr,
+    data: data
+  });
+  
+  saveState("dynamicForms", state.dynamicForms);
+  
+  closeModal("modalFillEForm");
+  showToast("Cảm ơn bạn đã đóng góp ý kiến phản hồi!", "success");
+  
+  renderDynamicFormsListUser();
+  if (state.activeView === "admin") {
+    renderAdminEForms();
+    if (selectedReportFormId === activeFillFormId) {
+      renderEFormReportingDashboard();
+    }
   }
 }

@@ -135,20 +135,8 @@
     <!-- TOP HORIZONTAL TABBAR -->
     <nav class="top-navbar">
       <div class="navbar-content">
-        <div class="nav-tabs-wrapper">
-          <a href="#" id="tab-dashboard" class="nav-tab-item active" onclick="switchView('dashboard')">Trang chủ</a>
-          <a href="#" id="tab-calendar" class="nav-tab-item" onclick="switchView('calendar')">Lịch công ty</a>
-          <a href="#" id="tab-news" class="nav-tab-item" onclick="switchView('news')">
-            Tin tức & Thông báo <span id="badgeAnnounceCount" class="nav-badge" style="display:none;">0</span>
-          </a>
-          <a href="#" id="tab-documents" class="nav-tab-item" onclick="switchView('documents')">Văn bản nội bộ</a>
-          <a href="#" id="tab-requests" class="nav-tab-item" onclick="switchView('requests')">
-            Đăng ký <span id="badgePendingApprovalsCount" class="nav-badge warning-badge" style="display:none;">0</span>
-          </a>
-          <a href="#" id="tab-directory" class="nav-tab-item" onclick="switchView('directory')">Danh bạ</a>
-          <a href="#" id="tab-surveys" class="nav-tab-item" onclick="switchView('surveys')">Khảo sát</a>
-          <a href="#" id="tab-albums" class="nav-tab-item" onclick="switchView('albums')">Album</a>
-          <a href="#" id="tab-admin" class="nav-tab-item" onclick="switchView('admin')" style="display: none;">Quản trị</a>
+        <div class="nav-tabs-wrapper" id="mainNavbarTabs" style="display:flex; width:100%; align-items:center;">
+          <!-- Loaded dynamically from state.activeTabs in updateNavbarTabs() -->
         </div>
       </div>
     </nav>
@@ -355,6 +343,9 @@
               <button class="news-cat-btn" onclick="filterNewsCategory('quyet-dinh')">📋 Quyết định</button>
               <button class="news-cat-btn" onclick="filterNewsCategory('tin-tuc')">📰 Tin tức sự kiện</button>
               <button class="news-cat-btn" onclick="filterNewsCategory('nhan-su')">👥 Nhân sự mới</button>
+              <button class="news-cat-btn" onclick="filterNewsCategory('pinned')" style="border-left: 1px solid var(--border-light); padding-left: 15px;"><span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:2px; color:var(--primary)">push_pin</span> Tin ghim</button>
+              <button class="news-cat-btn" onclick="filterNewsCategory('read-later')"><span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:2px; color:var(--success)">update</span> Đọc sau</button>
+              <button class="news-cat-btn" onclick="filterNewsCategory('bookmarked')"><span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:2px; color:var(--warning)">bookmark</span> Đã lưu</button>
             </div>
             
             <!-- Pinned & General News Cards Grid -->
@@ -446,7 +437,7 @@
               <h2 style="font-weight: 800;">Kho Văn Bản Nội Bộ</h2>
               <p class="page-desc">Tra cứu quy chế, quy trình, biểu mẫu chính thức, ISO và công văn đi/đến</p>
             </div>
-            <button class="btn btn-primary" onclick="openModal('modalNewDoc')">
+            <button class="btn btn-primary" id="docUploadBtn" onclick="openNewDocModal()">
               <span class="material-symbols-outlined">cloud_upload</span> Tải lên văn bản mới
             </button>
           </div>
@@ -751,7 +742,9 @@
             <button id="admin-tab-btn-analytics" class="sub-tab-btn active" onclick="switchAdminTab('analytics')">Thống kê hoạt động</button>
             <button id="admin-tab-btn-users" class="sub-tab-btn" onclick="switchAdminTab('users')">Quản lý người dùng</button>
             <button id="admin-tab-btn-taxonomies" class="sub-tab-btn" onclick="switchAdminTab('taxonomies')">Quản lý danh mục</button>
-            <button id="admin-tab-btn-config" class="sub-tab-btn" onclick="switchAdminTab('config')">Cấu hình Portal</button>
+            <button id="admin-tab-btn-workflows" class="sub-tab-btn" onclick="switchAdminTab('workflows')">Luồng phê duyệt</button>
+            <button id="admin-tab-btn-tabs" class="sub-tab-btn" onclick="switchAdminTab('tabs')">Cấu trúc Tab</button>
+            <button id="admin-tab-btn-eforms" class="sub-tab-btn" onclick="switchAdminTab('eforms')">Biểu mẫu & Báo cáo</button>
             <button id="admin-tab-btn-announcements" class="sub-tab-btn" onclick="switchAdminTab('announcements')">Giám sát đọc thông báo</button>
           </div>
 
@@ -832,23 +825,23 @@
 
           <!-- Sub-view: Taxonomies -->
           <div id="admin-subview-taxonomies" class="admin-subview" style="display:none;">
-            <div class="grid-3" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-bottom: 20px;">
+            <div class="grid-3" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px;">
               
               <!-- rooms category -->
               <div class="card">
                 <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-light); padding-bottom:12px; margin-bottom:12px;">
-                  <h3 style="font-size:1rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
-                    <span class="material-symbols-outlined" style="color:var(--primary);">meeting_room</span>
+                  <h3 style="font-size:0.92rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                    <span class="material-symbols-outlined" style="color:var(--primary); font-size:18px;">meeting_room</span>
                     Danh mục phòng họp
                   </h3>
-                  <span class="badge badge-primary" id="count-rooms" style="font-size:0.75rem;">0 phòng</span>
+                  <span class="badge badge-primary" id="count-rooms" style="font-size:0.7rem; padding: 2px 6px;">0 phòng</span>
                 </div>
                 <div class="card-body" style="padding:0;">
-                  <div style="display:flex; gap:8px; margin: 0 15px 15px 15px;">
-                    <input type="text" id="addRoomInput" placeholder="VD: Phòng hội thảo lầu 3..." style="flex:1; padding:8px 12px; font-size:0.85rem; border:1px solid var(--border); border-radius:var(--radius); outline:none;">
-                    <button class="btn btn-primary btn-sm" onclick="addTaxonomyItem('rooms')" style="padding:8px 16px; font-size:0.85rem;">Thêm</button>
+                  <div style="display:flex; gap:6px; margin: 0 12px 12px 12px;">
+                    <input type="text" id="addRoomInput" placeholder="Phòng họp C..." style="flex:1; padding:6px 10px; font-size:0.8rem; border:1px solid var(--border-light); border-radius:4px; outline:none;">
+                    <button class="btn btn-primary btn-sm" onclick="addTaxonomyItem('rooms')" style="padding:6px 12px; font-size:0.8rem;">Thêm</button>
                   </div>
-                  <div id="rooms-list-container" style="max-height: 350px; overflow-y: auto; border-top: 1px solid var(--border-light);">
+                  <div id="rooms-list-container" style="max-height: 250px; overflow-y: auto; border-top: 1px solid var(--border-light);">
                     <!-- Dynamic rooms list -->
                   </div>
                 </div>
@@ -857,18 +850,18 @@
               <!-- documents category -->
               <div class="card">
                 <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-light); padding-bottom:12px; margin-bottom:12px;">
-                  <h3 style="font-size:1rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
-                    <span class="material-symbols-outlined" style="color:var(--purple);">description</span>
+                  <h3 style="font-size:0.92rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                    <span class="material-symbols-outlined" style="color:var(--purple); font-size:18px;">description</span>
                     Danh mục tài liệu / văn bản
                   </h3>
-                  <span class="badge badge-purple" id="count-docs" style="font-size:0.75rem;">0 loại</span>
+                  <span class="badge badge-purple" id="count-docs" style="font-size:0.7rem; padding: 2px 6px;">0 loại</span>
                 </div>
                 <div class="card-body" style="padding:0;">
-                  <div style="display:flex; gap:8px; margin: 0 15px 15px 15px;">
-                    <input type="text" id="addDocCatInput" placeholder="VD: Báo cáo tài chính..." style="flex:1; padding:8px 12px; font-size:0.85rem; border:1px solid var(--border); border-radius:var(--radius); outline:none;">
-                    <button class="btn btn-primary btn-sm" onclick="addTaxonomyItem('docCategories')" style="padding:8px 16px; font-size:0.85rem;">Thêm</button>
+                  <div style="display:flex; gap:6px; margin: 0 12px 12px 12px;">
+                    <input type="text" id="addDocCatInput" placeholder="Tài liệu đào tạo..." style="flex:1; padding:6px 10px; font-size:0.8rem; border:1px solid var(--border-light); border-radius:4px; outline:none;">
+                    <button class="btn btn-primary btn-sm" onclick="addTaxonomyItem('docCategories')" style="padding:6px 12px; font-size:0.8rem;">Thêm</button>
                   </div>
-                  <div id="doc-categories-list-container" style="max-height: 350px; overflow-y: auto; border-top: 1px solid var(--border-light);">
+                  <div id="doc-categories-list-container" style="max-height: 250px; overflow-y: auto; border-top: 1px solid var(--border-light);">
                     <!-- Dynamic doc category list -->
                   </div>
                 </div>
@@ -877,19 +870,59 @@
               <!-- event types category -->
               <div class="card">
                 <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-light); padding-bottom:12px; margin-bottom:12px;">
-                  <h3 style="font-size:1rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:8px;">
-                    <span class="material-symbols-outlined" style="color:var(--success);">event_note</span>
+                  <h3 style="font-size:0.92rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                    <span class="material-symbols-outlined" style="color:var(--success); font-size:18px;">event_note</span>
                     Danh mục sự kiện họp
                   </h3>
-                  <span class="badge badge-success" id="count-events" style="font-size:0.75rem;">0 loại</span>
+                  <span class="badge badge-success" id="count-events" style="font-size:0.7rem; padding: 2px 6px;">0 loại</span>
                 </div>
                 <div class="card-body" style="padding:0;">
-                  <div style="display:flex; gap:8px; margin: 0 15px 15px 15px;">
-                    <input type="text" id="addEventTypeInput" placeholder="VD: Tập huấn / Đào tạo..." style="flex:1; padding:8px 12px; font-size:0.85rem; border:1px solid var(--border); border-radius:var(--radius); outline:none;">
-                    <button class="btn btn-primary btn-sm" onclick="addTaxonomyItem('eventTypes')" style="padding:8px 16px; font-size:0.85rem;">Thêm</button>
+                  <div style="display:flex; gap:6px; margin: 0 12px 12px 12px;">
+                    <input type="text" id="addEventTypeInput" placeholder="Lịch sinh hoạt công đoàn..." style="flex:1; padding:6px 10px; font-size:0.8rem; border:1px solid var(--border-light); border-radius:4px; outline:none;">
+                    <button class="btn btn-primary btn-sm" onclick="addTaxonomyItem('eventTypes')" style="padding:6px 12px; font-size:0.8rem;">Thêm</button>
                   </div>
-                  <div id="event-types-list-container" style="max-height: 350px; overflow-y: auto; border-top: 1px solid var(--border-light);">
+                  <div id="event-types-list-container" style="max-height: 250px; overflow-y: auto; border-top: 1px solid var(--border-light);">
                     <!-- Dynamic event types list -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- departments category (NEW) -->
+              <div class="card">
+                <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-light); padding-bottom:12px; margin-bottom:12px;">
+                  <h3 style="font-size:0.92rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                    <span class="material-symbols-outlined" style="color:var(--cyan); font-size:18px;">corporate_fare</span>
+                    Danh mục phòng ban
+                  </h3>
+                  <span class="badge badge-cyan" id="count-depts" style="font-size:0.7rem; padding: 2px 6px;">0 đơn vị</span>
+                </div>
+                <div class="card-body" style="padding:0;">
+                  <div style="display:flex; gap:6px; margin: 0 12px 12px 12px;">
+                    <input type="text" id="addDeptInput" placeholder="Phòng Kế toán..." style="flex:1; padding:6px 10px; font-size:0.8rem; border:1px solid var(--border-light); border-radius:4px; outline:none;">
+                    <button class="btn btn-primary btn-sm" onclick="addTaxonomyItem('departments')" style="padding:6px 12px; font-size:0.8rem;">Thêm</button>
+                  </div>
+                  <div id="depts-list-container" style="max-height: 250px; overflow-y: auto; border-top: 1px solid var(--border-light);">
+                    <!-- Dynamic departments list -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- procedure types category (NEW) -->
+              <div class="card">
+                <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-light); padding-bottom:12px; margin-bottom:12px;">
+                  <h3 style="font-size:0.92rem; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+                    <span class="material-symbols-outlined" style="color:var(--warning); font-size:18px;">checklist</span>
+                    Danh mục thủ tục đăng ký
+                  </h3>
+                  <span class="badge badge-warning" id="count-procs" style="font-size:0.7rem; padding: 2px 6px;">0 thủ tục</span>
+                </div>
+                <div class="card-body" style="padding:0;">
+                  <div style="display:flex; gap:6px; margin: 0 12px 12px 12px;">
+                    <input type="text" id="addProcTypeInput" placeholder="Đăng ký WFH..." style="flex:1; padding:6px 10px; font-size:0.8rem; border:1px solid var(--border-light); border-radius:4px; outline:none;">
+                    <button class="btn btn-primary btn-sm" onclick="addTaxonomyItem('procedureTypes')" style="padding:6px 12px; font-size:0.8rem;">Thêm</button>
+                  </div>
+                  <div id="procs-list-container" style="max-height: 250px; overflow-y: auto; border-top: 1px solid var(--border-light);">
+                    <!-- Dynamic procedure types list -->
                   </div>
                 </div>
               </div>
@@ -897,52 +930,89 @@
             </div>
           </div>
 
-          <!-- Sub-view: Configuration -->
-          <div id="admin-subview-config" class="admin-subview" style="display:none;">
-            <div class="card" style="max-width:700px; margin:0 auto;">
-              <div class="card-header"><h3>Cấu hình tham số Cổng thông tin</h3></div>
-              <div class="card-body">
-                <form id="formAdminConfig" onsubmit="return false;">
-                  <div class="form-group">
-                    <label for="adminConfigPortalName">Tên hiển thị Cổng thông tin *</label>
-                    <input type="text" id="adminConfigPortalName" value="eOffice Portal">
-                  </div>
-                  <div class="form-row">
-                    <div class="form-group">
-                      <label for="adminConfigCompany">Tên doanh nghiệp chính *</label>
-                      <input type="text" id="adminConfigCompany" value="ABC Corporation">
-                    </div>
-                    <div class="form-group">
-                      <label for="adminConfigBanners">Số banner tiêu điểm tối đa</label>
-                      <input type="number" id="adminConfigBanners" value="5" min="1">
-                    </div>
-                  </div>
-                  <div class="form-group">
-                    <label>Quản lý các danh mục đăng tin nội bộ</label>
-                    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:8px;">
-                      <span class="badge badge-primary">📢 Thông báo <span class="material-symbols-outlined" style="font-size:12px; cursor:pointer;" onclick="showToast('Danh mục mặc định hệ thống', 'warning')">lock</span></span>
-                      <span class="badge badge-purple">📋 Quyết định <span class="material-symbols-outlined" style="font-size:12px; cursor:pointer;" onclick="showToast('Danh mục mặc định hệ thống', 'warning')">lock</span></span>
-                      <span class="badge badge-success">📰 Tin tức <span class="material-symbols-outlined" style="font-size:12px; cursor:pointer;" onclick="showToast('Danh mục mặc định hệ thống', 'warning')">lock</span></span>
-                      <span class="badge badge-cyan">👥 Nhân sự <span class="material-symbols-outlined" style="font-size:12px; cursor:pointer;" onclick="showToast('Danh mục mặc định hệ thống', 'warning')">lock</span></span>
-                    </div>
-                  </div>
-                  <div class="form-group">
-                    <label class="custom-checkbox">
-                      <input type="checkbox" id="adminConfigAllowComments" checked>
-                      Cho phép nhân viên viết bình luận công khai dưới các bài đăng tin tức
-                    </label>
-                  </div>
-                  <div class="form-group">
-                    <label class="custom-checkbox">
-                      <input type="checkbox" id="adminConfigAllowWFH" checked>
-                      Mở cổng Đăng ký Quy trình Làm việc từ xa (Work From Home) trên hệ thống
-                    </label>
-                  </div>
-                  <div style="text-align:right; margin-top:20px; border-top:1px solid var(--border); padding-top:16px;">
-                    <button type="button" class="btn btn-primary" onclick="saveAdminConfig()">Lưu cấu hình hệ thống</button>
-                  </div>
-                </form>
+          <!-- Sub-view: Workflows (NEW) -->
+          <div id="admin-subview-workflows" class="admin-subview" style="display:none;">
+            <div class="card" style="max-width: 700px; margin: 0 auto; background: white; padding: 16px;">
+              <div class="card-header" style="border-bottom:1px solid var(--border-light); padding-bottom:12px; margin-bottom:16px;">
+                <h3 style="font-size:1.05rem; font-weight:700; color:var(--text); display:flex; align-items:center; gap:8px;">
+                  <span class="material-symbols-outlined" style="color:var(--primary);">alt_route</span>
+                  Cấu hình luồng phê duyệt thủ tục
+                </h3>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top:4px;">Thiết lập các bước phê duyệt và chỉ định nhân sự phê duyệt cho từng thủ tục đăng ký trong hệ thống.</p>
               </div>
+              <div class="card-body">
+                <div class="form-group">
+                  <label for="workflowProcSelect">Chọn thủ tục hành chính:</label>
+                  <select id="workflowProcSelect" onchange="changeWorkflowProc()" style="max-width: 320px; font-weight:600; color:var(--primary);">
+                    <!-- Loaded dynamically from state.procedureTypes -->
+                  </select>
+                </div>
+                
+                <div style="margin-top: 24px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
+                  <strong style="font-size: 0.88rem; color: var(--text);">Các bước duyệt trong luồng quy trình:</strong>
+                  <button class="btn btn-outline btn-sm" onclick="openAddWorkflowStepModal()" style="font-size: 0.78rem;">
+                    <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">add</span> Thêm bước duyệt
+                  </button>
+                </div>
+                
+                <!-- Workflow Nodes Timeline -->
+                <div id="workflowDesignTimeline" style="margin-bottom: 24px; max-height: 350px; overflow-y: auto; padding: 4px; border: 1px solid var(--border-light); border-radius: 6px; background:#fafafa;">
+                  <!-- Loaded dynamically in renderWorkflowDesignTimeline() -->
+                </div>
+                
+                <div style="text-align: right; border-top: 1px solid var(--border-light); padding-top: 16px;">
+                  <button class="btn btn-primary" onclick="saveWorkflowConfig()">Lưu cấu hình quy trình</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-view: Navigation Tabs (NEW) -->
+          <div id="admin-subview-tabs" class="admin-subview" style="display:none;">
+            <div class="card" style="max-width: 600px; margin: 0 auto; background: white; padding: 16px;">
+              <div class="card-header" style="border-bottom:1px solid var(--border-light); padding-bottom:12px; margin-bottom:16px;">
+                <h3 style="font-size:1.05rem; font-weight:700; color:var(--text); display:flex; align-items:center; gap:8px;">
+                  <span class="material-symbols-outlined" style="color:var(--warning);">tab</span>
+                  Quản lý các Tab chức năng thanh tiêu đề
+                </h3>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top:4px;">Bật hoặc tắt các tab chức năng chính trên thanh menu ngang điều hướng Portal.</p>
+              </div>
+              <div class="card-body">
+                <div id="adminTabsListContainer">
+                  <!-- Loaded dynamically from state.activeTabs -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-view: Dynamic eForms & Aggregated Reports (NEW) -->
+          <div id="admin-subview-eforms" class="admin-subview" style="display:none;">
+            <div class="grid-2" style="display: grid; grid-template-columns: 1fr 2fr; gap: 20px; align-items: start;">
+              
+              <!-- Left: List of Created Forms -->
+              <div class="card" style="background: white; padding: 12px; min-height: 400px;">
+                <div class="card-header" style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border-light); padding-bottom:12px; margin-bottom:12px;">
+                  <h3 style="font-size:0.95rem; font-weight:700; color:var(--text); display:flex; align-items:center; gap:6px;">
+                    <span class="material-symbols-outlined" style="color:var(--primary); font-size:20px;">dynamic_form</span>
+                    Danh sách eForm
+                  </h3>
+                  <button class="btn btn-primary btn-xs" onclick="openCreateEFormModal()" style="padding:4px 8px; font-size:0.75rem;">+ Tạo mới</button>
+                </div>
+                <div class="card-body" style="padding:0;">
+                  <div id="adminEFormsListContainer" style="max-height: 400px; overflow-y: auto;">
+                    <!-- Loaded dynamically -->
+                  </div>
+                </div>
+              </div>
+              
+              <!-- Right: Submissions Table & Reporting Chart -->
+              <div id="adminEFormSubmissionsContainer" style="min-height: 350px;">
+                <div class="card" style="text-align: center; padding: 40px; color: var(--text-muted); background: white;">
+                  <span class="material-symbols-outlined" style="font-size: 3rem; margin-bottom: 12px;">bar_chart</span>
+                  <p>Vui lòng chọn một eForm ở danh sách bên trái để xem tổng hợp báo cáo kết quả khảo sát và chọn các định dạng biểu đồ tương ứng.</p>
+                </div>
+              </div>
+              
             </div>
           </div>
 
@@ -1238,11 +1308,8 @@
             </div>
             
             <div class="form-group" id="formGroupFileDownload">
-              <label>Tệp tài liệu đính kèm (nếu có)</label>
-              <div class="file-dropzone" style="padding: 10px; border-style: solid; border-width: 1px;">
-                <span class="material-symbols-outlined" style="font-size: 20px;">attach_file</span>
-                <span style="font-size: 0.8rem;">Click đính kèm file (PDF, DOCX)</span>
-              </div>
+              <label for="newPostFile">Tệp tài liệu đính kèm (nếu có)</label>
+              <input type="file" id="newPostFile" multiple style="width:100%; font-size:0.8rem; padding:6px; border:1px dashed var(--border-light); border-radius:6px; background:#f8fafc;">
             </div>
           </div>
           
@@ -1537,6 +1604,149 @@
     
     <button class="lightbox-nav lightbox-next" onclick="navigateLightbox(1)"><span class="material-symbols-outlined" style="font-size: 32px;">chevron_right</span></button>
     <div id="lightboxCaption" class="lightbox-caption">Mô tả ảnh</div>
+  </div>
+
+  <!-- Modal: Tải lên tài liệu mới (Văn bản nội bộ) -->
+  <div id="modalNewDoc" class="modal-overlay" onclick="closeModalOutside(event, 'modalNewDoc')">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Tải lên văn bản nội bộ mới</h2>
+        <button class="btn-icon-only modal-close-btn" onclick="closeModal('modalNewDoc')"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="modal-body">
+        <form id="formNewDoc" onsubmit="return false;">
+          <div class="form-group">
+            <label for="newDocTitle">Tiêu đề văn bản *</label>
+            <input type="text" id="newDocTitle" placeholder="VD: Quy trình đề xuất mua sắm trang thiết bị..." required>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label for="newDocCode">Ký hiệu / Số văn bản *</label>
+              <input type="text" id="newDocCode" placeholder="VD: QT-05/HÀNHCHÍNH" required>
+            </div>
+            <div class="form-group">
+              <label for="newDocVersion">Phiên bản</label>
+              <input type="text" id="newDocVersion" placeholder="VD: v1.0" value="v1.0">
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="newDocCategorySelect">Danh mục văn bản *</label>
+            <select id="newDocCategorySelect" required>
+              <!-- Loaded dynamically -->
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="newDocDesc">Mô tả tóm tắt</label>
+            <textarea id="newDocDesc" rows="3" placeholder="Nhập tóm tắt nội dung văn bản..."></textarea>
+          </div>
+          <div class="form-group">
+            <label for="newDocFile">Tệp tài liệu đính kèm *</label>
+            <input type="file" id="newDocFile" required style="width:100%; font-size:0.8rem; padding:6px; border:1px dashed var(--border-light); border-radius:6px; background:#f8fafc;">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modalNewDoc')">Hủy bỏ</button>
+        <button class="btn btn-primary" onclick="submitNewDoc()">Lưu tài liệu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Phát tin video tin tức -->
+  <div id="modalVideoPlayer" class="modal-overlay" onclick="closeVideoPlayer()">
+    <div class="modal lg" style="max-width: 720px; background: #0f172a; color: white; border: none; overflow: hidden;" onclick="event.stopPropagation()">
+      <div class="modal-header" style="border-bottom: 1px solid #334155; padding: 12px 16px;">
+        <h2 id="videoPlayerTitle" style="color: white; font-size: 1.05rem;">Trình phát video tin tức</h2>
+        <button class="btn-icon-only modal-close-btn" onclick="closeVideoPlayer()" style="color: white;"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="modal-body" style="padding: 0; background: black; display: flex; justify-content: center; align-items: center;">
+        <video id="videoPlayerElement" controls style="width: 100%; max-height: 450px; display: block;" src=""></video>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Thêm bước phê duyệt quy trình -->
+  <div id="modalAddWorkflowStep" class="modal-overlay" onclick="closeModalOutside(event, 'modalAddWorkflowStep')">
+    <div class="modal" style="max-width: 400px;">
+      <div class="modal-header">
+        <h2>Thêm bước phê duyệt</h2>
+        <button class="btn-icon-only modal-close-btn" onclick="closeModal('modalAddWorkflowStep')"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="newStepName">Tên bước duyệt *</label>
+          <input type="text" id="newStepName" placeholder="VD: Trưởng phòng duyệt, Giám đốc duyệt..." required>
+        </div>
+        <div class="form-group">
+          <label for="newStepApprover">Người chịu trách nhiệm phê duyệt *</label>
+          <select id="newStepApprover">
+            <!-- Loaded dynamically from state.users -->
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modalAddWorkflowStep')">Hủy bỏ</button>
+        <button class="btn btn-primary" onclick="submitAddWorkflowStep()">Thêm bước</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Thiết kế eForm động mới -->
+  <div id="modalCreateEForm" class="modal-overlay" onclick="closeModalOutside(event, 'modalCreateEForm')">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Tạo biểu mẫu eForm khảo sát mới</h2>
+        <button class="btn-icon-only modal-close-btn" onclick="closeModal('modalCreateEForm')"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="newEFormName">Tên biểu mẫu (eForm Name) *</label>
+          <input type="text" id="newEFormName" placeholder="VD: Khảo sát tiêm chủng, Ý kiến cơm văn phòng..." required>
+        </div>
+        <div class="form-group">
+          <label for="newEFormDesc">Mô tả chi tiết</label>
+          <input type="text" id="newEFormDesc" placeholder="Mục đích thu thập thông tin này...">
+        </div>
+        
+        <div style="margin-top: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+          <h4 style="font-size: 0.85rem; font-weight: 700; color: var(--text);">Các trường thông tin (Form Fields)</h4>
+          <button class="btn btn-outline btn-sm" onclick="addEFormField()" style="padding: 4px 8px; font-size: 0.78rem;">
+            <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">add</span> Thêm trường
+          </button>
+        </div>
+        
+        <!-- List of created fields -->
+        <div id="createEFormFieldsList" style="max-height: 220px; overflow-y: auto; padding: 4px; border: 1px solid var(--border-light); border-radius: 6px; background: #f8fafc;">
+          <!-- Loaded dynamically -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modalCreateEForm')">Hủy bỏ</button>
+        <button class="btn btn-primary" onclick="submitCreateEForm()">Tạo eForm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Người dùng điền thông tin eForm khảo sát -->
+  <div id="modalFillEForm" class="modal-overlay" onclick="closeModalOutside(event, 'modalFillEForm')">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="eformFillTitle">Biểu mẫu khảo sát</h2>
+        <button class="btn-icon-only modal-close-btn" onclick="closeModal('modalFillEForm')"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="modal-body">
+        <p id="eformFillDesc" style="font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 15px; line-height: 1.4;"></p>
+        <form id="formFillEForm" onsubmit="return false;">
+          <div id="eformFillFieldsContainer">
+            <!-- Dynamic fields render -->
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modalFillEForm')">Đóng</button>
+        <button class="btn btn-primary" id="eformFillSubmitBtn" onclick="submitEFormFillData()">Gửi tờ trình / Ý kiến</button>
+      </div>
+    </div>
   </div>
 
   <!-- TOAST ALERTS CONTAINER -->
