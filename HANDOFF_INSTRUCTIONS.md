@@ -190,5 +190,65 @@ git checkout -- package.json scripts/
     ```
     Website sẽ chạy trên cổng 8000 (`http://localhost:8000`). Sau khi xác minh các tính năng hoạt động ổn định ở local, hãy tiến hành chạy Quy trình Deploy ở **Mục 6** để cập nhật trực tiếp lên trang chủ trực tuyến của doanh nghiệp.
 
+## 8. LỘ TRÌNH CHUYỂN ĐỔI SANG MÁY CHỦ CÔNG TY (BACKEND DATABASE MIGRATION)
+
+Khi doanh nghiệp quyết định vận hành chính thức và muốn chuyển toàn bộ dữ liệu từ trình duyệt cá nhân (LocalStorage) về lưu trữ tập trung tại máy chủ nội bộ của công ty, hãy thực hiện theo lộ trình kiến trúc sau:
+
+### Bước 1: Xây dựng dịch vụ API Backend trên máy chủ
+*   **Công nghệ khuyên dùng**: Node.js/Express, Python FastAPI, Java Spring Boot hoặc C# .NET Core.
+*   **Database**: PostgreSQL hoặc MySQL để quản lý dữ liệu có cấu trúc.
+*   **LDAP/Active Directory**: Kết nối trực tiếp hệ thống tài khoản `users` với máy chủ quản lý danh tính nội bộ của công ty để nhân viên đăng nhập bằng tài khoản Windows/Email công ty thật.
+
+### Bước 2: Chuyển đổi cơ chế Đọc/Ghi dữ liệu (`loadState` & `saveState`)
+Hiện tại trong `js/app.js`, mọi hành động lưu và nạp trạng thái đều đi qua 2 hàm `loadState` và `saveState`. Cần sửa đổi 2 hàm này thành bất đồng bộ (`async/await`) để gọi API từ máy chủ:
+
+```javascript
+const API_BASE_URL = "https://eoffice.congty.vn/api"; // URL máy chủ công ty
+
+// Hàm đọc dữ liệu từ máy chủ
+async function loadState(key) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/${key}`, {
+      headers: {
+        "Authorization": `Bearer ${state.userToken}`
+      }
+    });
+    if (response.ok) return await response.json();
+  } catch (error) {
+    console.error(`Không thể lấy dữ liệu ${key} từ máy chủ:`, error);
+  }
+  // Fallback về LocalStorage nếu mất kết nối máy chủ
+  return JSON.parse(localStorage.getItem(`state_${key}`));
+}
+
+// Hàm ghi dữ liệu lên máy chủ
+async function saveState(key, data) {
+  // Lưu tạm local dự phòng
+  localStorage.setItem(`state_${key}`, JSON.stringify(data));
+
+  try {
+    await fetch(`${API_BASE_URL}/${key}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${state.userToken}`
+      },
+      body: JSON.stringify(data)
+    });
+  } catch (error) {
+    console.error(`Không thể lưu dữ liệu ${key} lên máy chủ:`, error);
+  }
+}
+```
+
+### Bước 3: Tách cấu trúc lưu trữ Tệp đính kèm (File Storage)
+*   **Vấn đề**: Hiện tại ảnh banner Base64 và file đính kèm Base64 được lưu trực tiếp chung trong JSON của bài viết/tài liệu. Lưu vào cơ sở dữ liệu quan hệ sẽ làm phình to DB rất nhanh.
+*   **Giải pháp**: 
+    1.  Xây dựng một API chuyên tải file lên máy chủ (ví dụ `POST /api/upload`). API này lưu tệp vào thư mục cứng trên máy chủ (hoặc các dịch vụ Object Storage như MinIO, AWS S3) rồi trả về đường dẫn URL (ví dụ: `https://eoffice.congty.vn/uploads/tai-lieu-1.pdf`).
+    2.  Trong JSON bài viết/tài liệu, chỉ cần lưu chuỗi đường dẫn URL này của tệp thay vì lưu chuỗi Base64 dài hàng triệu ký tự.
+
+### Bước 4: Chuyển đổi hàm khởi tạo `initApp`
+Chuyển đổi hàm `initApp()` ở cuối file `js/app.js` thành hàm bất đồng bộ (`async function initApp()`) và sử dụng lệnh `await` để đảm bảo nạp dữ liệu thành công từ API máy chủ trước khi chạy các lệnh kết xuất giao diện (Render).
+
 ---
 *Chúc bạn phát triển dự án thành công! Hệ thống này có tính tùy biến rất cao, sẵn sàng đón nhận các tính năng tiếp theo từ bạn.*
