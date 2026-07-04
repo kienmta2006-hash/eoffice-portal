@@ -1,0 +1,20 @@
+{
+  "name": "eoffice-portal",
+  "version": "1.0.0",
+  "description": "eOffice - Cổng Thông Tin Nội Bộ Doanh Nghiệp. Hệ thống truyền thông nội bộ, quản lý văn bản và phê duyệt quy trình.",
+  "author": "ABC Corporation",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "dev": "npx -y lite-server --baseDir=. --port=8000",
+    "build": "node scripts/build.js",
+    "preview": "npx -y lite-server --baseDir=dist --port=9000",
+    "clean": "rm -rf dist"
+  },
+  "keywords": [
+    "eoffice",
+    "intranet",
+    "portal",
+    "enterprise"
+  ]
+}
