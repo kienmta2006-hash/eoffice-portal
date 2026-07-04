@@ -174,5 +174,21 @@ git checkout main
 git checkout -- package.json scripts/
 ```
 
+## 7. CẤU HÌNH PHÁT TRIỂN & ĐỒNG BỘ TRÊN NỀN GITHUB PAGES
+
+Ứng dụng live trực tuyến đang hoạt động tại địa chỉ: **https://kienmta2006-hash.github.io/eoffice-portal/**
+
+### Quy tắc định dạng đường dẫn để tương thích với GitHub Pages:
+1.  **Đường dẫn tương đối (Relative Paths)**: 
+    Tuyệt đối không sử dụng đường dẫn tuyệt đối bắt đầu bằng dấu gạch chéo `/` (ví dụ: không dùng `/css/styles.css` hay `/js/app.js`). Hãy luôn sử dụng đường dẫn tương đối (ví dụ: `css/styles.css` hoặc `js/app.js`). Điều này đảm bảo khi chạy dưới thư mục con (Subdirectory) `/eoffice-portal/` trên GitHub Pages, trình duyệt luôn trỏ đúng đường dẫn tài nguyên tĩnh.
+2.  **Đường dẫn Assets/Hình ảnh**:
+    Các tệp tĩnh như hình ảnh biểu mẫu, logo nếu lưu cục bộ phải được gọi tương đối (ví dụ: `images/logo.png`). Nếu sử dụng Data URL (Base64) hoặc link ảnh trực tuyến (Unsplash), hệ thống sẽ hiển thị hoàn hảo ở cả local lẫn live.
+3.  **Local Dev Server**:
+    Khi lập trình ở máy cục bộ (local), hãy chạy lệnh:
+    ```bash
+    npm run dev
+    ```
+    Website sẽ chạy trên cổng 8000 (`http://localhost:8000`). Sau khi xác minh các tính năng hoạt động ổn định ở local, hãy tiến hành chạy Quy trình Deploy ở **Mục 6** để cập nhật trực tiếp lên trang chủ trực tuyến của doanh nghiệp.
+
 ---
 *Chúc bạn phát triển dự án thành công! Hệ thống này có tính tùy biến rất cao, sẵn sàng đón nhận các tính năng tiếp theo từ bạn.*
