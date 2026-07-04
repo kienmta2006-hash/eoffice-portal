@@ -1386,6 +1386,30 @@ function togglePostFormFields() {
   }
 }
 
+function handleNewPostFileChange(input) {
+  const label = document.getElementById("newPostFileLabel");
+  if (!label) return;
+  if (input.files && input.files.length > 0) {
+    if (input.files.length === 1) {
+      label.textContent = `Đã chọn: ${input.files[0].name}`;
+    } else {
+      label.textContent = `Đã chọn ${input.files.length} tệp tin`;
+    }
+  } else {
+    label.textContent = "Click đính kèm file (PDF, DOCX)";
+  }
+}
+
+function handleNewDocFileChange(input) {
+  const label = document.getElementById("newDocFileLabel");
+  if (!label) return;
+  if (input.files && input.files.length > 0) {
+    label.textContent = `Đã chọn: ${input.files[0].name}`;
+  } else {
+    label.textContent = "Kéo thả file PDF văn bản hoặc Click để tải lên";
+  }
+}
+
 function submitNewPost() {
   const category = document.getElementById("newPostCategory").value;
   const title = document.getElementById("newPostTitle").value.trim();
