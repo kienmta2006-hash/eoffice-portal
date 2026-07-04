@@ -1217,12 +1217,12 @@ function showNewsDetail(id, focusComment = false) {
   const attachList = document.getElementById("newsDetailAttachmentsList");
   if (post.attachments && post.attachments.length > 0) {
     attachSec.style.display = "block";
-    attachList.innerHTML = post.attachments.map(file => `
+    attachList.innerHTML = post.attachments.map((file, idx) => `
       <div class="attachment-item">
         <span class="material-symbols-outlined">picture_as_pdf</span>
         <span style="font-weight: 500;">${file.name}</span>
         <span>(${file.size})</span>
-        <button class="btn btn-outline btn-sm" onclick="downloadFileSimulate('${file.name}')" style="margin-left: auto; padding: 4px 8px;"><span class="material-symbols-outlined" style="font-size: 14px;">download</span> Tải về</button>
+        <button class="btn btn-outline btn-sm" onclick="downloadPostAttachment(${post.id}, ${idx})" style="margin-left: auto; padding: 4px 8px;"><span class="material-symbols-outlined" style="font-size: 14px;">download</span> Tải về</button>
       </div>
     `).join('');
   } else {
@@ -1243,21 +1243,47 @@ function showNewsDetail(id, focusComment = false) {
   }
 }
 
+function dataURLtoBlob(dataurl) {
+  try {
+    var arr = dataurl.split(','), 
+        mime = arr[0].match(/:(.*?);/)[1],
+        bstr = atob(arr[1]), 
+        n = bstr.length, 
+        u8arr = new Uint8Array(n);
+    while(n--){
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], {type:mime});
+  } catch (e) {
+    console.error("Error converting dataURL to Blob:", e);
+    return null;
+  }
+}
+
 function downloadFileSimulate(fileName, dataUrl) {
-  if (dataUrl) {
+  if (dataUrl && dataUrl.startsWith("data:")) {
     showToast(`Đang tải xuống tệp tin: ${fileName}...`, "info");
     
-    // Create download link from real data URL (Base64)
-    const a = document.createElement("a");
-    a.href = dataUrl;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    
-    showToast(`Đã tải xuống tệp tin ${fileName} thành công!`, "success");
-    return;
+    try {
+      const blob = dataURLtoBlob(dataUrl);
+      if (blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        showToast(`Đã tải xuống tệp tin ${fileName} thành công!`, "success");
+        return;
+      }
+    } catch (err) {
+      console.error("Download error:", err);
+    }
   }
+
 
   showToast(`Đang chuẩn bị tải xuống: ${fileName}...`, "info");
   
@@ -1877,7 +1903,7 @@ function renderDocuments() {
       <td>${d.date}</td>
       <td>${d.dept}</td>
       <td>
-        <a href="#" onclick="downloadFileSimulate('${d.file.name}'); event.preventDefault();" style="display:flex; align-items:center; gap:4px; font-weight:500;">
+        <a href="#" onclick="downloadDocumentFile(${d.id}); event.preventDefault();" style="display:flex; align-items:center; gap:4px; font-weight:500;">
           <span class="material-symbols-outlined" style="font-size:18px; color:var(--danger)">picture_as_pdf</span>
           Tải về
         </a>
@@ -2006,7 +2032,7 @@ function showDocDetail(id) {
       <span class="material-symbols-outlined">picture_as_pdf</span>
       <span style="font-weight:600;">${doc.file.name}</span>
       <span style="color:var(--text-muted)">(${doc.file.size})</span>
-      <button class="btn btn-primary btn-sm" onclick="showToast('Tải tệp tin tài liệu...', 'success')" style="margin-left:auto;"><span class="material-symbols-outlined" style="font-size:14px;">download</span> Tải xuống</button>
+      <button class="btn btn-primary btn-sm" onclick="downloadDocumentFile(${doc.id})" style="margin-left:auto;"><span class="material-symbols-outlined" style="font-size:14px;">download</span> Tải xuống</button>
     </div>
   `;
   
