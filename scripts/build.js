@@ -69,18 +69,8 @@ function minifyCSS(css) {
 }
 
 function minifyJS(js) {
-  return js
-    // Remove single-line comments (but not URLs like http://)
-    .replace(/(?<![:"'])\/\/(?![\/"']).*$/gm, '')
-    // Remove multi-line comments
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    // Collapse multiple blank lines into one
-    .replace(/\n{3,}/g, '\n\n')
-    // Remove leading whitespace on each line
-    .replace(/^\s+/gm, '')
-    // Remove trailing whitespace
-    .replace(/\s+$/gm, '')
-    .trim();
+  // Keep JS as-is to avoid breaking regular expressions, strings, or comments containing double slashes
+  return js;
 }
 
 // ─── Build Steps ────────────────────────────────────────────
