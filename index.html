@@ -94,14 +94,6 @@
             </div>
           </div>
           
-          <!-- Mail icon with badge -->
-          <div class="mail-btn" style="position: relative;">
-            <button class="btn btn-icon-only" style="color: white; border: none; background: transparent; position: relative; padding: 4px;">
-              <span class="material-symbols-outlined">mail</span>
-              <span class="bell-dot" style="background: var(--danger); width: 15px; height: 15px; font-size: 0.62rem; color: white; display: flex; align-items: center; justify-content: center; position: absolute; top: -4px; right: -4px; border-radius: 50%;">5</span>
-            </button>
-          </div>
-          
           <!-- Grid menu icon (Apps) -->
           <div class="apps-btn">
             <button class="btn btn-icon-only" style="color: white; border: none; background: transparent; padding: 4px;">
@@ -165,115 +157,36 @@
             <!-- LEFT COLUMN (~75%) -->
             <div class="dashboard-left-col">
               
-              <!-- ROW 1: Carousel & Small List -->
+              <!-- ROW 1: Mục tin lớn (tin mới nhất & được ghim) -->
               <div class="dash-row-1">
-                <!-- Carousel (Tin nổi bật) -->
                 <div class="dash-carousel-card card">
                   <div class="carousel-container" id="dashCarouselContainer">
                     <!-- Rendered dynamically -->
                   </div>
                 </div>
-                
-                <!-- Small News List -->
-                <div class="dash-small-news-card card">
-                  <div class="card-body" style="padding: 16px;">
-                    <div id="dashSmallNewsList" class="small-news-list">
-                      <!-- Rendered dynamically -->
-                    </div>
-                    <div style="text-align: right; margin-top: 12px; border-top: 1px solid var(--border-light); padding-top: 10px;">
-                      <a href="#" onclick="switchView('news')" class="view-all-link">Xem tất cả tin tức <span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle;">arrow_forward</span></a>
-                    </div>
-                  </div>
-                </div>
               </div>
-              
-              <!-- ROW 2: Tin tức nổi bật (4 cards) -->
+
+              <!-- ROW 2: Tin mới nhất -->
               <div class="dash-row-2">
-                <div class="section-title-row" style="margin-bottom: 16px;">
-                  <h3 style="font-size: 1.05rem; font-weight: 800; color: #002d62; text-transform: uppercase; letter-spacing: 0.02em;">Tin tức nổi bật</h3>
+                <div class="section-title-row" style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+                  <h3 style="font-size: 1.05rem; font-weight: 800; color: #002d62; text-transform: uppercase; letter-spacing: 0.02em;">Tin mới nhất</h3>
+                  <a href="#" onclick="switchView('news')" class="view-all-link">Xem tất cả tin tức <span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle;">arrow_forward</span></a>
                 </div>
                 <div class="featured-news-grid" id="dashFeaturedNewsGrid">
-                  <!-- Rendered dynamically (4 cards) -->
+                  <!-- Rendered dynamically -->
                 </div>
               </div>
               
-              <!-- ROW 3: Bottom Widgets (3 columns) -->
+              <!-- ROW 3: Bottom Widgets -->
               <div class="dash-row-3">
-                <!-- Column 1: Văn bản nội bộ -->
-                <div class="card bottom-widget-card">
-                  <div class="card-header">
-                    <h3>Văn bản nội bộ</h3>
-                  </div>
-                  <div class="card-body" style="padding: 12px 16px;">
-                    <!-- Quyết định & Văn bản chỉ đạo (Tách riêng) -->
-                    <div class="doc-cat-row-featured" onclick="switchView('documents'); filterDocsByCategory('quyet-dinh-chi-dao')">
-                      <div class="doc-cat-icon"><span class="material-symbols-outlined">folder_shared</span></div>
-                      <div class="doc-cat-info">
-                        <span class="title">📂 Quyết định & Văn bản chỉ đạo</span>
-                      </div>
-                      <span class="count-badge">45 tài liệu</span>
-                      <span class="material-symbols-outlined chevron-arrow">chevron_right</span>
-                    </div>
-                    
-                    <div style="height: 1px; background: var(--border-light); margin: 8px 0;"></div>
-                    
-                    <!-- 5 nhóm còn lại -->
-                    <div class="doc-categories-list">
-                      <div class="doc-cat-row red-row" onclick="switchView('documents'); filterDocsByCategory('quy-dinh-quy-che')">
-                        <div class="doc-cat-icon"><span class="material-symbols-outlined">gavel</span></div>
-                        <span class="title">📜 Quy định & Quy chế</span>
-                        <span class="count-badge">12 tài liệu</span>
-                        <span class="material-symbols-outlined chevron-arrow">chevron_right</span>
-                      </div>
-                      <div class="doc-cat-row purple" onclick="switchView('documents'); filterDocsByCategory('quy-trinh')">
-                        <div class="doc-cat-icon"><span class="material-symbols-outlined">settings_suggest</span></div>
-                        <span class="title">🔄 Quy trình</span>
-                        <span class="count-badge">25 tài liệu</span>
-                        <span class="material-symbols-outlined chevron-arrow">chevron_right</span>
-                      </div>
-                      <div class="doc-cat-row green" onclick="switchView('documents'); filterDocsByCategory('bieu-mau')">
-                        <div class="doc-cat-icon"><span class="material-symbols-outlined">feed</span></div>
-                        <span class="title">📝 Biểu mẫu</span>
-                        <span class="count-badge">18 tài liệu</span>
-                        <span class="material-symbols-outlined chevron-arrow">chevron_right</span>
-                      </div>
-                      <div class="doc-cat-row orange-row" onclick="switchView('documents'); filterDocsByCategory('chinh-sach')">
-                        <div class="doc-cat-icon"><span class="material-symbols-outlined">campaign</span></div>
-                        <span class="title">📢 Chính sách</span>
-                        <span class="count-badge">10 tài liệu</span>
-                        <span class="material-symbols-outlined chevron-arrow">chevron_right</span>
-                      </div>
-                      <div class="doc-cat-row blue" onclick="switchView('documents'); filterDocsByCategory('huong-dan-dao-tao')">
-                        <div class="doc-cat-icon"><span class="material-symbols-outlined">school</span></div>
-                        <span class="title">📚 Hướng dẫn & Tài liệu đào tạo</span>
-                        <span class="count-badge">15 tài liệu</span>
-                        <span class="material-symbols-outlined chevron-arrow">chevron_right</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <!-- Column 2: Khảo sát nổi bật -->
-                <div class="card bottom-widget-card">
+                <!-- Khảo sát nổi bật (ẩn khi tắt tab "surveys") -->
+                <div class="card bottom-widget-card" id="dashSurveyCard">
                   <div class="card-header">
                     <h3>Khảo sát nổi bật</h3>
                     <a href="#" onclick="switchView('surveys')">Xem tất cả →</a>
                   </div>
                   <div class="card-body" id="dashSurveyWidget" style="padding: 16px;">
                     <!-- Rendered dynamically -->
-                  </div>
-                </div>
-                
-                <!-- Column 3: Album mới -->
-                <div class="card bottom-widget-card">
-                  <div class="card-header">
-                    <h3>Album mới</h3>
-                    <a href="#" onclick="switchView('albums')">Xem tất cả</a>
-                  </div>
-                  <div class="card-body" style="padding: 16px;">
-                    <div class="dash-albums-grid" id="dashAlbumsGrid">
-                      <!-- Rendered dynamically -->
-                    </div>
                   </div>
                 </div>
               </div>
@@ -304,6 +217,17 @@
                 </div>
               </div>
               
+              <!-- Quyết định & chỉ đạo (đặt dưới Thông báo mới) -->
+              <div class="card sidebar-card" style="margin-top: 20px; border: none;">
+                <div class="sidebar-card-header blue">
+                  <h3>Quyết định & chỉ đạo</h3>
+                  <a href="#" onclick="switchView('announcements')">Xem tất cả</a>
+                </div>
+                <div class="card-body" id="dashDecisionsList" style="padding: 8px 12px;">
+                  <!-- Rendered dynamically -->
+                </div>
+              </div>
+
               <!-- Card 2: Lịch hôm nay -->
               <div class="card sidebar-card calendar-card" style="margin-top: 20px;">
                 <div class="sidebar-card-header white">
@@ -320,6 +244,17 @@
                   <div class="sidebar-events-timeline" id="dashEventsTimeline" style="padding: 0 16px;">
                     <!-- Rendered dynamically -->
                   </div>
+                </div>
+              </div>
+
+              <!-- Yêu cầu / Trình duyệt (đặt dưới Lịch hôm nay) -->
+              <div class="card sidebar-card" style="margin-top: 20px; border: none;">
+                <div class="sidebar-card-header white">
+                  <h3>Yêu cầu / Trình duyệt</h3>
+                  <a href="#" onclick="switchView('requests')">Xem tất cả</a>
+                </div>
+                <div class="card-body" id="dashRequestsList" style="padding: 8px 12px;">
+                  <!-- Rendered dynamically -->
                 </div>
               </div>
             </div>
@@ -345,7 +280,6 @@
               <button class="news-cat-btn" onclick="filterNewsCategory('nhan-su')">👥 Nhân sự mới</button>
               <button class="news-cat-btn" onclick="filterNewsCategory('pinned')" style="border-left: 1px solid var(--border-light); padding-left: 15px;"><span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:2px; color:var(--primary)">push_pin</span> Tin ghim</button>
               <button class="news-cat-btn" onclick="filterNewsCategory('read-later')"><span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:2px; color:var(--success)">update</span> Đọc sau</button>
-              <button class="news-cat-btn" onclick="filterNewsCategory('bookmarked')"><span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle; margin-right:2px; color:var(--warning)">bookmark</span> Đã lưu</button>
             </div>
             
             <!-- Pinned & General News Cards Grid -->
@@ -363,6 +297,9 @@
             <div class="media-section">
               <div class="section-header-row">
                 <h3><span class="material-symbols-outlined" style="color: var(--danger);">play_circle</span> Tin tức Video</h3>
+                <button class="btn btn-outline btn-sm" id="newVideoBtn" onclick="openModal('modalNewVideo')" style="display: none; align-items: center; gap: 4px;">
+                  <span class="material-symbols-outlined" style="font-size: 16px;">video_call</span> Đăng video mới
+                </button>
               </div>
               <div id="videoNewsScrollRow" class="media-scroll-row">
                 <!-- Loaded dynamically -->
@@ -571,7 +508,7 @@
               <h2 style="font-weight: 800;">Lịch Công Ty</h2>
               <p class="page-desc">Theo dõi các cuộc họp phòng ban, sự kiện chung, lịch nghỉ lễ và sinh nhật CBNV</p>
             </div>
-            <button class="btn btn-primary" onclick="openModal('modalNewEvent')">
+            <button class="btn btn-primary" onclick="openAddEventModal()">
               <span class="material-symbols-outlined">event_note</span> Đăng ký lịch/sự kiện
             </button>
           </div>
@@ -666,12 +603,51 @@
               <h2 style="font-weight: 800;">Thư Viện Album Ảnh & Video</h2>
               <p class="page-desc">Hình ảnh, video lưu niệm các hoạt động phong trào, lễ hội, sự kiện công ty</p>
             </div>
+            <button class="btn btn-primary" id="newAlbumBtn" onclick="openNewAlbumModal()" style="display: none; align-items: center; gap: 6px;">
+              <span class="material-symbols-outlined">add_photo_alternate</span> Tạo album mới
+            </button>
           </div>
           
           <div id="albumsGrid" class="album-grid">
             <!-- Load dynamically -->
           </div>
+          <!-- Hidden input for adding photos to an album -->
+          <input type="file" id="albumPhotoInput" accept="image/*" multiple style="display: none;" onchange="handleAlbumPhotoUpload(this)">
         </section>
+
+        <!-- Modal: Tạo album mới -->
+        <div id="modalNewAlbum" class="modal-overlay" onclick="closeModalOutside(event, 'modalNewAlbum')">
+          <div class="modal">
+            <div class="modal-header">
+              <h2>Tạo album ảnh mới</h2>
+              <button class="btn-icon-only modal-close-btn" onclick="closeModal('modalNewAlbum')"><span class="material-symbols-outlined">close</span></button>
+            </div>
+            <div class="modal-body">
+              <form id="formNewAlbum" onsubmit="return false;">
+                <div class="form-group">
+                  <label for="newAlbumTitle">Tên album *</label>
+                  <input type="text" id="newAlbumTitle" placeholder="VD: Teambuilding Hè 2026..." required>
+                </div>
+                <div class="form-group">
+                  <label for="newAlbumDate">Ngày sự kiện</label>
+                  <input type="text" id="newAlbumDate" placeholder="VD: 18/07/2026">
+                </div>
+                <div class="form-group">
+                  <label>Ảnh trong album (có thể chọn nhiều ảnh cùng lúc)</label>
+                  <div class="file-dropzone" onclick="document.getElementById('newAlbumPhotos').click()" style="padding: 10px; border: 1px dashed var(--primary); border-radius: var(--radius); text-align: center; cursor: pointer; background: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <span class="material-symbols-outlined" style="font-size: 20px; color: var(--primary);">add_photo_alternate</span>
+                    <span id="newAlbumPhotosLabel" style="font-size: 0.8rem; font-weight: 600;">Chọn nhiều ảnh (.jpg, .png)</span>
+                  </div>
+                  <input type="file" id="newAlbumPhotos" accept="image/*" multiple style="display: none;" onchange="handleNewAlbumPhotosChange(this)">
+                </div>
+              </form>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-outline" onclick="closeModal('modalNewAlbum')">Hủy</button>
+              <button class="btn btn-primary" onclick="submitNewAlbum()">Tạo album</button>
+            </div>
+          </div>
+        </div>
         
         <!-- ============================
              VIEW: CÀI ĐẶT (SETTINGS)
@@ -1133,13 +1109,9 @@
         </article>
         
         <!-- Interactive buttons row -->
-        <div style="display: flex; justify-content: space-between; padding: 12px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-bottom: 24px;">
-          <div style="display: flex; gap: 12px;">
-            <button id="btnLikeDetail" class="btn btn-outline btn-sm" onclick="handleLikeDetail()"><span class="material-symbols-outlined">thumb_up</span> Hữu ích (<span id="newsDetailLikeCount">0</span>)</button>
-            <button id="btnBookmarkDetail" class="btn btn-outline btn-sm" onclick="handleBookmarkDetail()"><span class="material-symbols-outlined">bookmark</span> Lưu trữ</button>
-            <button id="btnReadLaterDetail" class="btn btn-outline btn-sm" onclick="handleReadLaterDetail()"><span class="material-symbols-outlined">update</span> Đọc sau</button>
-          </div>
-          <button class="btn btn-outline btn-sm" onclick="handleShareInternal()"><span class="material-symbols-outlined">share</span> Chia sẻ nội bộ</button>
+        <div style="display: flex; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin-bottom: 24px;">
+          <button id="btnLikeDetail" class="btn btn-outline btn-sm" onclick="handleLikeDetail()"><span class="material-symbols-outlined">thumb_up</span> Hữu ích (<span id="newsDetailLikeCount">0</span>)</button>
+          <button id="btnReadLaterDetail" class="btn btn-outline btn-sm" onclick="handleReadLaterDetail()"><span class="material-symbols-outlined">update</span> Đọc sau</button>
         </div>
         
         <!-- Comments Section -->
@@ -1450,7 +1422,7 @@
   <div id="modalNewEvent" class="modal-overlay" onclick="closeModalOutside(event, 'modalNewEvent')">
     <div class="modal">
       <div class="modal-header">
-        <h2>Đăng ký Lịch làm việc / Sự kiện mới</h2>
+        <h2 id="modalNewEventTitle">Đăng ký Lịch làm việc / Sự kiện mới</h2>
         <button class="btn-icon-only modal-close-btn" onclick="closeModal('modalNewEvent')"><span class="material-symbols-outlined">close</span></button>
       </div>
       <div class="modal-body">
@@ -1507,7 +1479,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closeModal('modalNewEvent')">Hủy</button>
-        <button class="btn btn-primary" onclick="submitNewEvent()">Tạo sự kiện lịch</button>
+        <button id="btnSubmitEvent" class="btn btn-primary" onclick="submitNewEvent()">Tạo sự kiện lịch</button>
       </div>
     </div>
   </div>
@@ -1600,6 +1572,7 @@
   <!-- Image Lightbox viewer for media albums -->
   <div id="lightboxModal" class="lightbox-overlay" onclick="closeLightboxOutside(event)">
     <button class="lightbox-close" onclick="closeLightbox()"><span class="material-symbols-outlined" style="font-size: 24px;">close</span></button>
+    <button id="lightboxDeleteBtn" class="lightbox-delete" onclick="deleteLightboxPhoto()" style="display: none;" title="Xóa ảnh này"><span class="material-symbols-outlined" style="font-size: 20px;">delete</span> Xóa ảnh</button>
     <button class="lightbox-nav lightbox-prev" onclick="navigateLightbox(-1)"><span class="material-symbols-outlined" style="font-size: 32px;">chevron_left</span></button>
     
     <div class="lightbox-container">
@@ -1663,8 +1636,71 @@
         <h2 id="videoPlayerTitle" style="color: white; font-size: 1.05rem;">Trình phát video tin tức</h2>
         <button class="btn-icon-only modal-close-btn" onclick="closeVideoPlayer()" style="color: white;"><span class="material-symbols-outlined">close</span></button>
       </div>
-      <div class="modal-body" style="padding: 0; background: black; display: flex; justify-content: center; align-items: center;">
-        <video id="videoPlayerElement" controls style="width: 100%; max-height: 450px; display: block;" src=""></video>
+      <div id="videoPlayerContainer" class="modal-body" style="padding: 0; background: black; display: flex; justify-content: center; align-items: center; min-height: 220px;">
+        <!-- <video> or <iframe> is injected here by playVideoReal() -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Đăng tin video mới -->
+  <div id="modalNewVideo" class="modal-overlay" onclick="closeModalOutside(event, 'modalNewVideo')">
+    <div class="modal lg">
+      <div class="modal-header">
+        <h2>Đăng tin video mới</h2>
+        <button class="btn-icon-only modal-close-btn" onclick="closeModal('modalNewVideo')"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="modal-body">
+        <form id="formNewVideo" onsubmit="return false;">
+          <div class="form-group">
+            <label for="newVideoTitle">Tiêu đề video *</label>
+            <input type="text" id="newVideoTitle" placeholder="Nhập tiêu đề video tin tức..." required>
+          </div>
+
+          <div class="form-group">
+            <label>Nguồn video *</label>
+            <div class="form-row" style="gap: 20px;">
+              <label style="display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 500; cursor: pointer;">
+                <input type="radio" name="videoSource" value="file" checked onchange="toggleVideoSource()"> Tải lên tệp video
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 500; cursor: pointer;">
+                <input type="radio" name="videoSource" value="url" onchange="toggleVideoSource()"> Dùng đường dẫn (URL)
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group" id="videoFileGroup">
+            <label>Tệp video</label>
+            <div class="file-dropzone" onclick="document.getElementById('newVideoFile').click()" style="padding: 10px; border: 1px dashed var(--primary); border-radius: var(--radius); text-align: center; cursor: pointer; background: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center; gap: 8px;">
+              <span class="material-symbols-outlined" style="font-size: 20px; color: var(--primary);">movie</span>
+              <span id="newVideoFileLabel" style="font-size: 0.8rem; font-weight: 600;">Chọn tệp video (.mp4, .webm)</span>
+            </div>
+            <input type="file" id="newVideoFile" accept="video/*" style="display: none;" onchange="handleNewVideoFileChange(this)">
+          </div>
+
+          <div class="form-group" id="videoUrlGroup" style="display: none;">
+            <label for="newVideoUrl">Đường dẫn video (URL)</label>
+            <input type="url" id="newVideoUrl" placeholder="https://.../video.mp4" onchange="handleNewVideoUrlChange(this)">
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="newVideoDuration">Thời lượng</label>
+              <input type="text" id="newVideoDuration" placeholder="Tự động phát hiện (có thể sửa)">
+            </div>
+            <div class="form-group">
+              <label>Ảnh đại diện (Thumbnail)</label>
+              <div class="file-dropzone" onclick="document.getElementById('newVideoThumb').click()" style="padding: 10px; border: 1px dashed var(--primary); border-radius: var(--radius); text-align: center; cursor: pointer; background: var(--primary-light); color: var(--primary); display: flex; align-items: center; justify-content: center; gap: 8px;">
+                <span class="material-symbols-outlined" style="font-size: 20px; color: var(--primary);">image</span>
+                <span id="newVideoThumbLabel" style="font-size: 0.8rem; font-weight: 600;">Tải ảnh đại diện (tùy chọn)</span>
+              </div>
+              <input type="file" id="newVideoThumb" accept="image/*" style="display: none;" onchange="handleNewVideoThumbChange(this)">
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modalNewVideo')">Hủy bỏ</button>
+        <button class="btn btn-primary" onclick="submitNewVideo()">Đăng video</button>
       </div>
     </div>
   </div>
