@@ -205,10 +205,14 @@ const INITIAL_NEWS = [
   }
 ];
 
+// Fallback thumbnail for videos that have no image (uploaded videos before a
+// thumbnail loads, or URL videos without one).
+const VIDEO_PLACEHOLDER = "https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?q=80&w=300";
+
 const INITIAL_VIDEOS = [
-  { id: 1, title: "Video toàn cảnh Ngày hội Gia đình ABC Family Day 2026", duration: "03:45", date: "2026-06-25", views: 245, bg: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?q=80&w=300" },
-  { id: 2, title: "Hành trình chinh phục đỉnh cao teambuilding Hồ Tràm", duration: "05:12", date: "2026-06-20", views: 189, bg: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=300" },
-  { id: 3, title: "Chia sẻ của Giám đốc Nguyễn Văn An nhân dịp Kỷ niệm 10 năm thành lập", duration: "08:20", date: "2026-06-10", views: 420, bg: "https://images.unsplash.com/photo-1542744094-3a31f103e35f?q=80&w=300" }
+  { id: 1, title: "Video toàn cảnh Ngày hội Gia đình ABC Family Day 2026", duration: "03:45", date: "2026-06-25", views: 245, bg: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?q=80&w=300", url: "https://media.w3.org/2010/05/sintel/trailer.mp4" },
+  { id: 2, title: "Hành trình chinh phục đỉnh cao teambuilding Hồ Tràm", duration: "05:12", date: "2026-06-20", views: 189, bg: "https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=300", url: "https://www.w3schools.com/html/mov_bbb.mp4" },
+  { id: 3, title: "Chia sẻ của Giám đốc Nguyễn Văn An nhân dịp Kỷ niệm 10 năm thành lập", duration: "08:20", date: "2026-06-10", views: 420, bg: "https://images.unsplash.com/photo-1542744094-3a31f103e35f?q=80&w=300", url: "https://download.samplelib.com/mp4/sample-5s.mp4" }
 ];
 
 const INITIAL_DOCUMENTS = [
@@ -420,9 +424,70 @@ function loadState(key, defaultData) {
   return data ? JSON.parse(data) : defaultData;
 }
 
-// Save State Helper
+// Save State Helper — quota-safe. localStorage caps at ~5MB per origin, so a
+// failed write must never crash the flow or silently lose data. Returns true on
+// success, false (with a clear toast) when the browser storage is full.
 function saveState(key, data) {
-  localStorage.setItem("eoffice_" + key, JSON.stringify(data));
+  try {
+    localStorage.setItem("eoffice_" + key, JSON.stringify(data));
+    return true;
+  } catch (e) {
+    console.error("saveState failed for '" + key + "':", e);
+    if (e && (e.name === "QuotaExceededError" || e.code === 22 || e.code === 1014)) {
+      showToast("Bộ nhớ trình duyệt đã đầy — không thể lưu (tệp/ảnh quá lớn).", "error");
+    }
+    return false;
+  }
+}
+
+// ---- IndexedDB storage for large binary files (attachments, documents) ----
+// Base64 files stuffed into localStorage blow its ~5MB quota, which was
+// corrupting downloads. IndexedDB has a far larger quota and is a native
+// browser API (no external library — complies with the project's rule #1).
+// Only tiny references (name/size/dataKey) stay in localStorage; the heavy
+// Data URL lives here, keyed by dataKey.
+const IDB_NAME = "eoffice_files";
+const IDB_STORE = "files";
+let _idbPromise = null;
+function idbOpen() {
+  if (_idbPromise) return _idbPromise;
+  _idbPromise = new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  return _idbPromise;
+}
+function idbSet(key, value) {
+  return idbOpen().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, "readwrite");
+    tx.objectStore(IDB_STORE).put(value, key);
+    tx.oncomplete = () => resolve(key);
+    tx.onerror = () => reject(tx.error);
+  }));
+}
+function idbGet(key) {
+  return idbOpen().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, "readonly");
+    const r = tx.objectStore(IDB_STORE).get(key);
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  }));
+}
+function idbDel(key) {
+  return idbOpen().then(db => new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, "readwrite");
+    tx.objectStore(IDB_STORE).delete(key);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  }));
+}
+function genFileKey() {
+  return "f_" + Date.now() + "_" + Math.random().toString(36).slice(2, 10);
 }
 
 // Global App State Object
@@ -510,7 +575,8 @@ let state = {
   currentCalendarMonth: 6, // July (0-indexed)
   currentCalendarYear: 2026,
   lightboxAlbum: null,
-  lightboxIndex: 0
+  lightboxIndex: 0,
+  mediaCache: {} // dataKey -> Data URL, for media rendered synchronously (video thumbnails)
 };
 
 // ==========================================
@@ -522,7 +588,42 @@ window.addEventListener("DOMContentLoaded", () => {
   initApp();
 });
 
+// Backfill a playable sample URL for older stored videos that predate the
+// `url` field, so existing seed videos are watchable.
+function migrateVideos() {
+  const samples = [
+    "https://media.w3.org/2010/05/sintel/trailer.mp4",
+    "https://www.w3schools.com/html/mov_bbb.mp4",
+    "https://download.samplelib.com/mp4/sample-5s.mp4"
+  ];
+  let changed = false;
+  state.videos.forEach((v, i) => {
+    // Backfill missing sources, and heal the old sample bucket that now 403s.
+    const dead = v.url && v.url.indexOf("gtv-videos-bucket") !== -1;
+    if ((!v.url && !v.videoKey) || dead) { v.url = samples[i % samples.length]; changed = true; }
+  });
+  if (changed) saveState("videos", state.videos);
+}
+
+// Load IndexedDB-stored media (video thumbnails + uploaded album photos) into an
+// in-memory cache so those views can render them synchronously.
+function preloadMedia() {
+  const keys = [];
+  state.videos.forEach(v => { if (v.thumbKey) keys.push(v.thumbKey); });
+  state.albums.forEach(a => (a.images || []).forEach(img => { if (img.dataKey) keys.push(img.dataKey); }));
+  if (!keys.length) return Promise.resolve();
+  return Promise.all(keys.map(k =>
+    idbGet(k).then(d => { if (d) state.mediaCache[k] = d; }).catch(() => {})
+  )).then(() => {
+    renderVideoNewsScroll();
+    if (state.activeView === "albums") renderAlbums();
+    if (state.activeView === "dashboard") renderDashboard();
+  });
+}
+
 function initApp() {
+  migrateVideos();
+  preloadMedia();
   updateLoginSelectOptions();
   populateTaxonomyDropdowns();
   updateNavbarTabs();
@@ -952,9 +1053,6 @@ function renderNews(searchQuery = "") {
             <button class="news-action-btn" onclick="showNewsDetail(${n.id}, true)">
               <span class="material-symbols-outlined">chat_bubble</span> Bình luận
             </button>
-            <button class="news-action-btn ${isBookmarked ? 'active' : ''}" onclick="toggleBookmarkNews(${n.id})">
-              <span class="material-symbols-outlined">bookmark</span> ${isBookmarked ? 'Bỏ Lưu' : 'Lưu'}
-            </button>
             <button class="news-action-btn ${isReadLater ? 'active' : ''}" onclick="toggleReadLaterNews(${n.id})">
               <span class="material-symbols-outlined">update</span> ${isReadLater ? 'Bỏ đọc sau' : 'Đọc sau'}
             </button>
@@ -1026,17 +1124,38 @@ function togglePinNews(id) {
   
   const post = state.news.find(n => n.id === id);
   if (!post) return;
-  
-  // If pinning this post, unpin other posts (only one pinned post as featured banner)
-  if (!post.pinned) {
-    state.news.forEach(n => n.pinned = false);
-  }
+
+  // Cho phép ghim NHIỀU tin: chỉ đảo trạng thái của tin này, không bỏ ghim tin khác.
+  // Tất cả tin được ghim đều hiển thị ở "mục tin lớn" trên Trang chủ.
   post.pinned = !post.pinned;
-  
+
   saveState("news", state.news);
   renderNews();
   renderDashboard();
-  showToast(post.pinned ? "Đã ghim bài viết lên đầu trang" : "Đã bỏ ghim bài viết", "success");
+  const pinnedCount = state.news.filter(n => n.pinned).length;
+  showToast(post.pinned ? `Đã ghim lên Trang chủ (${pinnedCount} tin đang ghim)` : "Đã bỏ ghim bài viết", "success");
+}
+
+// Resolve a video's thumbnail: uploaded thumbnails live in IndexedDB (thumbKey,
+// cached in state.mediaCache); otherwise it's a direct URL (bg), else a default.
+function videoThumbSrc(v) {
+  if (v.thumbKey) return state.mediaCache[v.thumbKey] || VIDEO_PLACEHOLDER;
+  return v.bg || VIDEO_PLACEHOLDER;
+}
+
+// Resolve an album photo: uploaded photos live in IndexedDB (dataKey, cached in
+// state.mediaCache); otherwise it's a direct URL.
+function albumImgSrc(img) {
+  if (!img) return VIDEO_PLACEHOLDER;
+  if (img.dataKey) return state.mediaCache[img.dataKey] || VIDEO_PLACEHOLDER;
+  return img.url || VIDEO_PLACEHOLDER;
+}
+// Album cover: explicit cover, else first photo, else placeholder.
+function albumCoverSrc(album) {
+  if (!album) return VIDEO_PLACEHOLDER;
+  if (album.cover) return album.cover;
+  if (album.coverUrl) return album.coverUrl;
+  return (album.images && album.images[0]) ? albumImgSrc(album.images[0]) : VIDEO_PLACEHOLDER;
 }
 
 // Render Videos Row inside News view
@@ -1044,10 +1163,14 @@ function renderVideoNewsScroll() {
   const row = document.getElementById("videoNewsScrollRow");
   if (!row) return;
   const canPostNews = state.currentUser.username === 'admin' || (state.currentUser.permissions && state.currentUser.permissions.canPostNews);
-  
+
+  // Toggle the "post new video" button based on the same permission as news.
+  const newVideoBtn = document.getElementById("newVideoBtn");
+  if (newVideoBtn) newVideoBtn.style.display = canPostNews ? 'inline-flex' : 'none';
+
   row.innerHTML = state.videos.map(v => `
     <div class="video-media-card" onclick="playVideoReal(${v.id})">
-      <div class="video-thumb-container" style="background-image: url('${v.bg}')">
+      <div class="video-thumb-container" style="background-image: url('${videoThumbSrc(v)}')">
         <div class="video-play-overlay">
           <span class="material-symbols-outlined">play_arrow</span>
         </div>
@@ -1067,30 +1190,98 @@ function renderVideoNewsScroll() {
   `).join('');
 }
 
-function playVideoReal(id) {
+let _currentVideoBlobUrl = null;
+
+// Extract a YouTube video id from the common URL shapes (watch, youtu.be,
+// embed, shorts, live).
+function getYouTubeId(url) {
+  if (!url) return null;
+  const patterns = [
+    /youtube\.com\/watch\?[^#]*\bv=([\w-]{11})/,
+    /youtu\.be\/([\w-]{11})/,
+    /youtube\.com\/embed\/([\w-]{11})/,
+    /youtube\.com\/shorts\/([\w-]{11})/,
+    /youtube\.com\/live\/([\w-]{11})/
+  ];
+  for (const p of patterns) { const m = url.match(p); if (m) return m[1]; }
+  return null;
+}
+
+// If the URL points to a streaming platform (YouTube/Vimeo), return an
+// embeddable URL for an <iframe>. A raw <video> tag cannot play those pages.
+function getEmbedUrl(url) {
+  if (!url) return null;
+  const yt = getYouTubeId(url);
+  if (yt) return `https://www.youtube.com/embed/${yt}`;
+  const vm = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+  if (vm) return `https://player.vimeo.com/video/${vm[1]}`;
+  return null;
+}
+
+// A poster image we can derive automatically (YouTube only).
+function autoThumbFromUrl(url) {
+  const yt = getYouTubeId(url);
+  return yt ? `https://img.youtube.com/vi/${yt}/hqdefault.jpg` : null;
+}
+
+async function playVideoReal(id) {
   const video = state.videos.find(v => v.id === id);
   if (!video) return;
-  
+
   video.views++;
   saveState("videos", state.videos);
   renderVideoNewsScroll();
-  
-  // Fill Modal Video Player
+
+  const container = document.getElementById("videoPlayerContainer");
+  if (!container) return;
   document.getElementById("videoPlayerTitle").textContent = video.title;
-  const videoEl = document.getElementById("videoPlayerElement");
-  if (videoEl) {
-    videoEl.src = video.url;
-    videoEl.load();
+  container.innerHTML = "";
+  if (_currentVideoBlobUrl) { URL.revokeObjectURL(_currentVideoBlobUrl); _currentVideoBlobUrl = null; }
+
+  // Uploaded files live in IndexedDB and play from an efficient Blob URL.
+  let fileSrc = null;
+  if (video.videoKey) {
+    try {
+      const dataUrl = await idbGet(video.videoKey);
+      const blob = dataUrl ? dataURLtoBlob(dataUrl) : null;
+      if (blob) { _currentVideoBlobUrl = URL.createObjectURL(blob); fileSrc = _currentVideoBlobUrl; }
+    } catch (e) { console.error("Không tải được video từ bộ nhớ:", e); }
+    if (!fileSrc) { showToast("Không tải được video từ bộ nhớ.", "error"); return; }
+  }
+
+  const embedUrl = fileSrc ? null : getEmbedUrl(video.url || "");
+
+  if (embedUrl) {
+    // YouTube / Vimeo → <iframe> embed (a <video> tag can't play these).
+    const iframe = document.createElement("iframe");
+    iframe.src = embedUrl + (embedUrl.indexOf("youtube.com") !== -1 ? "?autoplay=1&rel=0" : "?autoplay=1");
+    iframe.setAttribute("allow", "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share");
+    iframe.setAttribute("allowfullscreen", "");
+    iframe.style.cssText = "width:100%; aspect-ratio:16/9; max-height:450px; border:0; display:block;";
+    container.appendChild(iframe);
+  } else {
+    // Uploaded file or a direct video file URL (.mp4, .webm…) → <video>.
+    const directSrc = fileSrc || video.url;
+    if (!directSrc) { showToast("Video này chưa có nguồn phát.", "error"); return; }
+    const videoEl = document.createElement("video");
+    videoEl.id = "videoPlayerElement";
+    videoEl.controls = true;
+    videoEl.autoplay = true;
+    videoEl.style.cssText = "width:100%; max-height:450px; display:block;";
+    videoEl.src = directSrc;
+    container.appendChild(videoEl);
     videoEl.play().catch(err => console.log("Auto-play prevented:", err));
   }
+
   openModal("modalVideoPlayer");
 }
 
 function closeVideoPlayer() {
-  const videoEl = document.getElementById("videoPlayerElement");
-  if (videoEl) {
-    videoEl.pause();
-  }
+  // Clearing the container removes the <video>/<iframe> and stops playback
+  // (otherwise a YouTube embed keeps playing audio in the background).
+  const container = document.getElementById("videoPlayerContainer");
+  if (container) container.innerHTML = "";
+  if (_currentVideoBlobUrl) { URL.revokeObjectURL(_currentVideoBlobUrl); _currentVideoBlobUrl = null; }
   closeModal("modalVideoPlayer");
 }
 
@@ -1105,15 +1296,155 @@ function deleteVideoPost(id, event) {
   }
 }
 
+// ---- Create-new-video flow ----
+
+function toggleVideoSource() {
+  const checked = document.querySelector('input[name="videoSource"]:checked');
+  const src = checked ? checked.value : "file";
+  const fileGroup = document.getElementById("videoFileGroup");
+  const urlGroup = document.getElementById("videoUrlGroup");
+  if (fileGroup) fileGroup.style.display = src === "file" ? "block" : "none";
+  if (urlGroup) urlGroup.style.display = src === "url" ? "block" : "none";
+}
+
+function formatDuration(sec) {
+  if (!isFinite(sec) || sec <= 0) return "";
+  const m = Math.floor(sec / 60), s = Math.floor(sec % 60);
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+// Read video length from metadata and fill the (readonly) duration field.
+function probeVideoDuration(src) {
+  const durInput = document.getElementById("newVideoDuration");
+  if (durInput) durInput.value = "Đang phát hiện...";
+  const tmp = document.createElement("video");
+  tmp.preload = "metadata";
+  const cleanup = () => { if (src && src.startsWith("blob:")) URL.revokeObjectURL(src); };
+  tmp.onloadedmetadata = () => { if (durInput) durInput.value = formatDuration(tmp.duration) || "00:00"; cleanup(); };
+  tmp.onerror = () => { if (durInput) durInput.value = ""; cleanup(); };
+  tmp.src = src;
+}
+
+function handleNewVideoFileChange(input) {
+  const label = document.getElementById("newVideoFileLabel");
+  if (!(input.files && input.files[0])) {
+    if (label) label.textContent = "Chọn tệp video (.mp4, .webm)";
+    delete input.dataset.videoKey;
+    return;
+  }
+  const file = input.files[0];
+  if (label) label.textContent = `Đang đọc: ${file.name}...`;
+  // Detect duration quickly from a temporary object URL (no full read needed).
+  probeVideoDuration(URL.createObjectURL(file));
+  // Store the heavy video data in IndexedDB; keep only a reference.
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const key = genFileKey();
+    idbSet(key, e.target.result).then(() => {
+      input.dataset.videoKey = key;
+      if (label) label.textContent = `Đã chọn: ${file.name}`;
+    }).catch(err => {
+      console.error("Lưu video thất bại:", err);
+      if (label) label.textContent = "Lỗi khi đọc video — vui lòng thử lại";
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleNewVideoUrlChange(input) {
+  const url = input.value.trim();
+  const durInput = document.getElementById("newVideoDuration");
+  if (!url) return;
+  if (getEmbedUrl(url)) {
+    // YouTube/Vimeo expose no readable metadata here; let the user type it.
+    if (durInput) durInput.value = "";
+    return;
+  }
+  probeVideoDuration(url);
+}
+
+function handleNewVideoThumbChange(input) {
+  const label = document.getElementById("newVideoThumbLabel");
+  if (!(input.files && input.files[0])) {
+    if (label) label.textContent = "Tải ảnh đại diện (tùy chọn)";
+    delete input.dataset.thumbKey;
+    return;
+  }
+  const file = input.files[0];
+  if (label) label.textContent = `Đang đọc: ${file.name}...`;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const key = genFileKey();
+    idbSet(key, e.target.result).then(() => {
+      state.mediaCache[key] = e.target.result; // available immediately for render
+      input.dataset.thumbKey = key;
+      if (label) label.textContent = `Đã chọn: ${file.name}`;
+    }).catch(err => {
+      console.error("Lưu ảnh đại diện thất bại:", err);
+      if (label) label.textContent = "Lỗi khi đọc ảnh — vui lòng thử lại";
+    });
+  };
+  reader.readAsDataURL(file);
+}
+
+function submitNewVideo() {
+  const title = document.getElementById("newVideoTitle").value.trim();
+  if (!title) { showToast("Vui lòng nhập tiêu đề video", "warning"); return; }
+
+  const checked = document.querySelector('input[name="videoSource"]:checked');
+  const source = checked ? checked.value : "file";
+  const fileInput = document.getElementById("newVideoFile");
+  const urlInput = document.getElementById("newVideoUrl");
+  const thumbInput = document.getElementById("newVideoThumb");
+  const durInput = document.getElementById("newVideoDuration");
+
+  let url = null, videoKey = null;
+  if (source === "url") {
+    url = urlInput.value.trim();
+    if (!url) { showToast("Vui lòng nhập đường dẫn video (URL)", "warning"); return; }
+  } else {
+    videoKey = fileInput.dataset.videoKey;
+    if (!videoKey) { showToast("Vui lòng chọn tệp video và đợi tải xong.", "warning"); return; }
+  }
+
+  const now = new Date();
+  const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  let duration = (durInput.value || "").trim();
+  if (!/^\d{1,2}:\d{2}$/.test(duration)) duration = "00:00";
+
+  const thumbKey = thumbInput.dataset.thumbKey || null;
+  const maxId = state.videos.reduce((m, v) => Math.max(m, v.id), 0);
+  const newVideo = { id: maxId + 1, title: title, duration: duration, date: dateStr, views: 0 };
+  if (url) newVideo.url = url;
+  if (videoKey) newVideo.videoKey = videoKey;
+  if (thumbKey) newVideo.thumbKey = thumbKey;
+  else newVideo.bg = (url ? autoThumbFromUrl(url) : null) || VIDEO_PLACEHOLDER;
+
+  state.videos.unshift(newVideo);
+  if (!saveState("videos", state.videos)) { state.videos.shift(); return; }
+  renderVideoNewsScroll();
+  closeModal("modalNewVideo");
+  showToast("Đã đăng video tin tức thành công!", "success");
+
+  // Reset form + labels
+  document.getElementById("formNewVideo").reset();
+  delete fileInput.dataset.videoKey;
+  delete thumbInput.dataset.thumbKey;
+  document.getElementById("newVideoFileLabel").textContent = "Chọn tệp video (.mp4, .webm)";
+  document.getElementById("newVideoThumbLabel").textContent = "Tải ảnh đại diện (tùy chọn)";
+  durInput.value = "";
+  toggleVideoSource();
+}
+
 
 // Render Albums Row preview inside News view
 function renderAlbumsPreviewScroll() {
   const row = document.getElementById("albumsPreviewScrollRow");
   row.innerHTML = state.albums.map(a => `
     <div class="video-media-card" style="width: 250px;" onclick="switchView('albums')">
-      <div class="video-thumb-container" style="background-image: url('${a.coverUrl}'); height: 130px;">
+      <div class="video-thumb-container" style="background-image: url('${albumCoverSrc(a)}'); height: 130px;">
         <span class="badge badge-neutral" style="position: absolute; bottom: 8px; right: 8px; font-size: 0.7rem; background: rgba(0,0,0,0.6); color: white;">
-          ${a.count} ảnh
+          ${a.images.length} ảnh
         </span>
       </div>
       <div class="video-media-body" style="padding: 10px;">
@@ -1262,8 +1593,6 @@ function dataURLtoBlob(dataurl) {
 
 function downloadFileSimulate(fileName, dataUrl) {
   if (dataUrl && dataUrl.startsWith("data:")) {
-    showToast(`Đang tải xuống tệp tin: ${fileName}...`, "info");
-    
     try {
       const blob = dataURLtoBlob(dataUrl);
       if (blob) {
@@ -1275,7 +1604,7 @@ function downloadFileSimulate(fileName, dataUrl) {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        
+
         showToast(`Đã tải xuống tệp tin ${fileName} thành công!`, "success");
         return;
       }
@@ -1284,58 +1613,49 @@ function downloadFileSimulate(fileName, dataUrl) {
     }
   }
 
-
-  showToast(`Đang chuẩn bị tải xuống: ${fileName}...`, "info");
-  
-  setTimeout(() => {
-    const blob = new Blob(["Simulated content of " + fileName], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = fileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    showToast(`Đã tải xuống tệp tin ${fileName} thành công!`, "success");
-  }, 500);
+  // No valid file data: report honestly instead of downloading a fake file
+  // (the old fallback produced an unopenable text file named like the original).
+  showToast(`Không thể tải "${fileName}": dữ liệu tệp không hợp lệ hoặc đã mất.`, "error");
 }
 
-function downloadPostAttachment(postId, attIdx) {
+// Resolve a file's real Data URL: legacy records store it inline (data),
+// new records store it in IndexedDB and keep only a reference (dataKey).
+async function resolveFileData(fileMeta) {
+  if (!fileMeta) return null;
+  if (fileMeta.data) return fileMeta.data;
+  if (fileMeta.dataKey) {
+    try { return await idbGet(fileMeta.dataKey); }
+    catch (e) { console.error("idbGet failed:", e); return null; }
+  }
+  return null;
+}
+
+async function downloadPostAttachment(postId, attIdx) {
   const post = state.news.find(n => n.id === postId);
-  if (post && post.attachments && post.attachments[attIdx]) {
-    const file = post.attachments[attIdx];
-    downloadFileSimulate(file.name, file.data);
-  }
+  if (!(post && post.attachments && post.attachments[attIdx])) return;
+  const file = post.attachments[attIdx];
+  const data = await resolveFileData(file);
+  if (!data) { showToast(`Không tìm thấy dữ liệu tệp "${file.name}".`, "error"); return; }
+  downloadFileSimulate(file.name, data);
 }
 
-function downloadDocumentFile(docId) {
+async function downloadDocumentFile(docId) {
   const doc = state.documents.find(d => d.id === docId);
-  if (doc && doc.file) {
-    downloadFileSimulate(doc.file.name, doc.file.data);
-  }
+  if (!(doc && doc.file)) return;
+  const data = await resolveFileData(doc.file);
+  if (!data) { showToast(`Không tìm thấy dữ liệu văn bản "${doc.file.name}".`, "error"); return; }
+  downloadFileSimulate(doc.file.name, data);
 }
 
 function updateNewsDetailActionButtons(post) {
   const isLiked = (post.likedBy || []).includes(state.currentUser.username);
-  const isBookmarked = (post.bookmarkedBy || []).includes(state.currentUser.username);
   const isReadLater = (post.readLaterBy || []).includes(state.currentUser.username);
-  
+
   document.getElementById("newsDetailLikeCount").textContent = post.likes;
-  
+
   const btnLike = document.getElementById("btnLikeDetail");
   if (isLiked) btnLike.classList.add("active"); else btnLike.classList.remove("active");
-  
-  const btnBookmark = document.getElementById("btnBookmarkDetail");
-  if (isBookmarked) {
-    btnBookmark.classList.add("active");
-    btnBookmark.innerHTML = `<span class="material-symbols-outlined">bookmark</span> Đã lưu trữ`;
-  } else {
-    btnBookmark.classList.remove("active");
-    btnBookmark.innerHTML = `<span class="material-symbols-outlined">bookmark</span> Lưu trữ`;
-  }
-  
+
   const btnReadLater = document.getElementById("btnReadLaterDetail");
   if (isReadLater) {
     btnReadLater.classList.add("active");
@@ -1460,22 +1780,22 @@ function handleNewPostFileChange(input) {
         if (file.size < 1024) sizeStr = file.size + " B";
         else if (file.size < 1024 * 1024) sizeStr = (file.size / 1024).toFixed(0) + " KB";
         else sizeStr = (file.size / (1024 * 1024)).toFixed(1) + " MB";
-        
-        attachments.push({
-          name: file.name,
-          size: sizeStr,
-          data: e.target.result // Real Base64 Data URL
-        });
-        
-        loadedCount++;
-        if (loadedCount === input.files.length) {
-          input.dataset.attachmentsJson = JSON.stringify(attachments);
-          if (input.files.length === 1) {
-            label.textContent = `Đã chọn: ${input.files[0].name}`;
-          } else {
-            label.textContent = `Đã chọn ${input.files.length} tệp tin`;
+
+        // Store the heavy Data URL in IndexedDB; keep only a light reference.
+        const dataKey = genFileKey();
+        idbSet(dataKey, e.target.result).then(() => {
+          attachments.push({ name: file.name, size: sizeStr, dataKey: dataKey });
+          loadedCount++;
+          if (loadedCount === input.files.length) {
+            input.dataset.attachmentsJson = JSON.stringify(attachments);
+            label.textContent = input.files.length === 1
+              ? `Đã chọn: ${input.files[0].name}`
+              : `Đã chọn ${input.files.length} tệp tin`;
           }
-        }
+        }).catch(err => {
+          console.error("Lưu tệp đính kèm thất bại:", err);
+          label.textContent = "Lỗi khi đọc tệp — vui lòng thử lại";
+        });
       };
       reader.readAsDataURL(file);
     }
@@ -1517,14 +1837,16 @@ function handleNewDocFileChange(input) {
       if (file.size < 1024) sizeStr = file.size + " B";
       else if (file.size < 1024 * 1024) sizeStr = (file.size / 1024).toFixed(0) + " KB";
       else sizeStr = (file.size / (1024 * 1024)).toFixed(1) + " MB";
-      
-      const fileObj = {
-        name: file.name,
-        size: sizeStr,
-        data: e.target.result
-      };
-      input.dataset.fileJson = JSON.stringify(fileObj);
-      label.textContent = `Đã chọn: ${file.name}`;
+
+      // Store the heavy Data URL in IndexedDB; keep only a light reference.
+      const dataKey = genFileKey();
+      idbSet(dataKey, e.target.result).then(() => {
+        input.dataset.fileJson = JSON.stringify({ name: file.name, size: sizeStr, dataKey: dataKey });
+        label.textContent = `Đã chọn: ${file.name}`;
+      }).catch(err => {
+        console.error("Lưu tệp văn bản thất bại:", err);
+        label.textContent = "Lỗi khi đọc tệp — vui lòng thử lại";
+      });
     };
     reader.readAsDataURL(file);
   } else {
@@ -1597,8 +1919,11 @@ function submitNewPost() {
   };
   
   state.news.unshift(newPost);
-  saveState("news", state.news);
-  
+  if (!saveState("news", state.news)) {
+    state.news.shift(); // roll back so we never show a post that wasn't persisted
+    return;
+  }
+
   // Push Notification if it is mandatory
   if (mandatory) {
     state.notifications.unshift({
@@ -1857,14 +2182,34 @@ function showReadRatio(newsId) {
 // 6. MODULE: VĂN BẢN NỘI BỘ (DOCUMENTS)
 // ==========================================
 
+// Quyền quản trị văn bản (được Admin cấp qua quyền "Đăng VB") — cho phép xóa VB.
+function canManageDocs() {
+  return !!(state.currentUser && (state.currentUser.username === "admin" ||
+    (state.currentUser.permissions && (state.currentUser.permissions.isAdmin || state.currentUser.permissions.canUploadDocs))));
+}
+
+function deleteDocument(id) {
+  if (!canManageDocs()) { showToast("Bạn không có quyền xóa văn bản", "error"); return; }
+  const doc = state.documents.find(d => d.id === id);
+  if (!doc) return;
+  if (!confirm(`Xóa văn bản "${doc.title}" (${doc.code})?`)) return;
+  if (doc.file && doc.file.dataKey) idbDel(doc.file.dataKey).catch(() => {}); // dọn tệp trong IndexedDB
+  state.documents = state.documents.filter(d => d.id !== id);
+  saveState("documents", state.documents);
+  renderDocuments();
+  renderDashboard();
+  showToast("Đã xóa văn bản nội bộ", "success");
+}
+
 function renderDocuments() {
   const tbody = document.getElementById("documentsTableBody");
   const query = document.getElementById("searchDocQuery").value.trim().toLowerCase();
   const docType = document.getElementById("filterDocType").value;
   const docDept = document.getElementById("filterDocDept").value;
-  
+
   // Show/hide upload button based on permission
   const uploadBtn = document.getElementById("docUploadBtn");
+  const canManage = canManageDocs();
   if (uploadBtn) {
     const canUpload = state.currentUser.username === 'admin' || (state.currentUser.permissions && state.currentUser.permissions.canUploadDocs);
     uploadBtn.style.display = canUpload ? 'block' : 'none';
@@ -1909,7 +2254,10 @@ function renderDocuments() {
         </a>
       </td>
       <td>
-        <button class="btn btn-outline btn-sm" onclick="showDocDetail(${d.id})">Chi tiết</button>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <button class="btn btn-outline btn-sm" onclick="showDocDetail(${d.id})">Chi tiết</button>
+          ${canManage ? `<button class="btn btn-outline btn-sm" onclick="deleteDocument(${d.id})" title="Xóa văn bản" style="color:var(--danger); border-color:#fecaca; padding:4px 8px;"><span class="material-symbols-outlined" style="font-size:16px;">delete</span></button>` : ''}
+        </div>
       </td>
     </tr>
   `).join('');
@@ -1942,13 +2290,13 @@ function submitNewDoc() {
   
   let fileName = code.replace(/\//g, "_") + "_Document.pdf";
   let sizeStr = "1.2 MB";
-  let fileData = null;
-  
+  let fileDataKey = null;
+
   if (fileInput && fileInput.dataset.fileJson) {
     const fileObj = JSON.parse(fileInput.dataset.fileJson);
     fileName = fileObj.name;
     sizeStr = fileObj.size;
-    fileData = fileObj.data; // Base64 Data URL
+    fileDataKey = fileObj.dataKey; // IndexedDB reference to the real file
   } else if (fileInput && fileInput.files && fileInput.files[0]) {
     // If dataset is not ready but files are present (fallback)
     fileName = fileInput.files[0].name;
@@ -1973,12 +2321,15 @@ function submitNewDoc() {
     file: {
       name: fileName,
       size: sizeStr,
-      data: fileData // Save real base64 file content
+      dataKey: fileDataKey // IndexedDB reference to the real file content
     }
   };
-  
+
   state.documents.unshift(newDoc);
-  saveState("documents", state.documents);
+  if (!saveState("documents", state.documents)) {
+    state.documents.shift(); // roll back so we never show an unsavable document
+    return;
+  }
   renderDocuments();
   closeModal("modalNewDoc");
   showToast("Tải lên tài liệu mới thành công", "success");
@@ -2494,12 +2845,20 @@ function approveRequest(id, actionType) {
 // 8. MODULE: LỊCH (CALENDAR)
 // ==========================================
 
+// Chỉ Admin mới được sửa/xóa lịch/sự kiện.
+function canManageCalendar() {
+  return !!(state.currentUser && (state.currentUser.username === "admin" ||
+    (state.currentUser.permissions && state.currentUser.permissions.isAdmin)));
+}
+
 function renderCalendar() {
   const container = document.getElementById("calendarWeeklyTableContainer");
   const monthTitle = document.getElementById("calendarMonthTitle");
-  
+
   if (!container || !monthTitle) return;
-  
+
+  const canManage = canManageCalendar();
+
   // Find Monday of the selected calendar date
   const selectedDateObj = new Date(state.selectedCalendarDate);
   const dayOfWeek = selectedDateObj.getDay();
@@ -2551,7 +2910,7 @@ function renderCalendar() {
     
     tableRows += `
       <tr class="cal-day-header-row ${isToday ? 'today-row' : ''}">
-        <td colspan="6">
+        <td colspan="${canManage ? 7 : 6}">
           <span class="day-badge">
             <span class="material-symbols-outlined" style="font-size:16px;">calendar_today</span>
             ${dayFormatted}
@@ -2570,6 +2929,7 @@ function renderCalendar() {
           <td style="color: var(--text-muted); text-align: center;">—</td>
           <td style="color: var(--text-muted); text-align: center;">—</td>
           <td style="color: var(--text-muted); text-align: center;">—</td>
+          ${canManage ? '<td style="color: var(--text-muted); text-align: center;">—</td>' : ''}
         </tr>
       `;
     } else {
@@ -2591,6 +2951,13 @@ function renderCalendar() {
               </div>
             </td>
             <td class="cal-table-note">${e.note || '—'}</td>
+            ${canManage ? `
+            <td>
+              <div class="cal-event-actions">
+                <button class="cal-act-btn edit" onclick="editEvent(${e.id})" title="Sửa lịch/sự kiện"><span class="material-symbols-outlined" style="font-size:18px;">edit</span></button>
+                <button class="cal-act-btn del" onclick="deleteEvent(${e.id})" title="Xóa lịch/sự kiện"><span class="material-symbols-outlined" style="font-size:18px;">delete</span></button>
+              </div>
+            </td>` : ''}
           </tr>
         `;
       });
@@ -2607,6 +2974,7 @@ function renderCalendar() {
           <th style="width: 200px;">Tham gia</th>
           <th style="width: 180px;">Phòng họp</th>
           <th style="width: 180px;">Ghi chú</th>
+          ${canManage ? '<th style="width: 100px;">Thao tác</th>' : ''}
         </tr>
       </thead>
       <tbody>
@@ -2645,6 +3013,60 @@ function renderSelectedDayEvents(dateStr) {
   // Keep function to avoid errors from any remaining callers.
 }
 
+// Mở modal ở chế độ THÊM MỚI (đặt lại form + nhãn nút).
+function openAddEventModal() {
+  state.editingEventId = null;
+  const form = document.getElementById("formNewEvent");
+  if (form) form.reset();
+  const titleEl = document.getElementById("modalNewEventTitle");
+  if (titleEl) titleEl.textContent = "Đăng ký Lịch làm việc / Sự kiện mới";
+  const btn = document.getElementById("btnSubmitEvent");
+  if (btn) btn.textContent = "Tạo sự kiện lịch";
+  openModal("modalNewEvent"); // openModal tự đặt newEventDate = ngày đang chọn
+}
+
+// Mở modal ở chế độ SỬA, nạp sẵn dữ liệu sự kiện (chỉ Admin).
+function editEvent(id) {
+  if (!canManageCalendar()) { showToast("Bạn không có quyền chỉnh sửa lịch/sự kiện", "error"); return; }
+  const ev = state.calendar.find(e => e.id === id);
+  if (!ev) return;
+  state.editingEventId = id;
+  openModal("modalNewEvent");
+  document.getElementById("newEventTitle").value = ev.title || "";
+  document.getElementById("newEventDate").value = ev.date || "";
+  document.getElementById("newEventTime").value = ev.time || "";
+  document.getElementById("newEventChairman").value = ev.chairman || "";
+  document.getElementById("newEventType").value = ev.type || "meeting";
+  document.getElementById("newEventGuests").value = ev.guests || "";
+  const locSel = document.getElementById("newEventLocation");
+  if (locSel) {
+    // Địa điểm tự do (VD sự kiện ngoài trời) có thể không có sẵn trong select → thêm option.
+    if (ev.location && !Array.from(locSel.options).some(o => o.value === ev.location)) {
+      const opt = document.createElement("option");
+      opt.value = ev.location; opt.textContent = ev.location;
+      locSel.appendChild(opt);
+    }
+    if (ev.location) locSel.value = ev.location;
+  }
+  document.getElementById("newEventNote").value = ev.note || "";
+  const titleEl = document.getElementById("modalNewEventTitle");
+  if (titleEl) titleEl.textContent = "Chỉnh sửa Lịch làm việc / Sự kiện";
+  const btn = document.getElementById("btnSubmitEvent");
+  if (btn) btn.textContent = "Lưu thay đổi";
+}
+
+function deleteEvent(id) {
+  if (!canManageCalendar()) { showToast("Bạn không có quyền xóa lịch/sự kiện", "error"); return; }
+  const ev = state.calendar.find(e => e.id === id);
+  if (!ev) return;
+  if (!confirm(`Xóa lịch/sự kiện "${ev.title}"?`)) return;
+  state.calendar = state.calendar.filter(e => e.id !== id);
+  saveState("calendar", state.calendar);
+  renderCalendar();
+  renderDashboard();
+  showToast("Đã xóa lịch/sự kiện", "success");
+}
+
 function submitNewEvent() {
   const title = document.getElementById("newEventTitle").value.trim();
   const date = document.getElementById("newEventDate").value;
@@ -2654,14 +3076,34 @@ function submitNewEvent() {
   const guests = document.getElementById("newEventGuests").value.trim();
   const chairman = document.getElementById("newEventChairman") ? document.getElementById("newEventChairman").value.trim() : "";
   const note = document.getElementById("newEventNote") ? document.getElementById("newEventNote").value.trim() : "";
-  
+
   if (!title || !date) {
     showToast("Vui lòng nhập tiêu đề sự kiện và chọn ngày", "warning");
     return;
   }
-  
+
+  // Chế độ SỬA
+  if (state.editingEventId) {
+    if (!canManageCalendar()) { showToast("Bạn không có quyền chỉnh sửa lịch/sự kiện", "error"); return; }
+    const ev = state.calendar.find(e => e.id === state.editingEventId);
+    if (ev) {
+      ev.title = title; ev.type = type; ev.date = date; ev.time = time;
+      ev.location = loc; ev.guests = guests || "Nội bộ phòng ban";
+      ev.chairman = chairman; ev.note = note;
+    }
+    saveState("calendar", state.calendar);
+    state.editingEventId = null;
+    closeModal("modalNewEvent");
+    document.getElementById("formNewEvent").reset();
+    renderCalendar();
+    renderDashboard();
+    showToast("Đã cập nhật lịch/sự kiện thành công!", "success");
+    return;
+  }
+
+  // Chế độ THÊM MỚI
   const newEv = {
-    id: state.calendar.length + 1,
+    id: (state.calendar.reduce((m, e) => Math.max(m, e.id), 0)) + 1,
     title: title,
     type: type,
     date: date,
@@ -2671,13 +3113,13 @@ function submitNewEvent() {
     chairman: chairman,
     note: note
   };
-  
+
   state.calendar.push(newEv);
   saveState("calendar", state.calendar);
-  
+
   closeModal("modalNewEvent");
   showToast("Đã lập lịch sự kiện thành công!", "success");
-  
+
   document.getElementById("formNewEvent").reset();
   renderCalendar();
   renderDashboard();
@@ -3001,17 +3443,115 @@ function submitNewSurvey() {
   renderDashboard();
 }
 
+// Media management (albums/photos) is allowed for admins and users with the
+// communications permission (canPostNews).
+function canManageMedia() {
+  return !!(state.currentUser && (state.currentUser.username === "admin" ||
+    (state.currentUser.permissions && state.currentUser.permissions.canPostNews)));
+}
+
+// ---- Tạo album mới ----
+function openNewAlbumModal() {
+  if (!canManageMedia()) { showToast("Bạn không có quyền tạo album", "error"); return; }
+  const form = document.getElementById("formNewAlbum");
+  if (form) form.reset();
+  const photosInput = document.getElementById("newAlbumPhotos");
+  if (photosInput) delete photosInput.dataset.photosJson;
+  const label = document.getElementById("newAlbumPhotosLabel");
+  if (label) label.textContent = "Chọn nhiều ảnh (.jpg, .png)";
+  openModal("modalNewAlbum");
+}
+
+// Đọc nhiều ảnh cùng lúc → lưu vào IndexedDB, giữ tham chiếu nhẹ trong dataset.
+function handleNewAlbumPhotosChange(input) {
+  const label = document.getElementById("newAlbumPhotosLabel");
+  if (!(input.files && input.files.length)) {
+    if (label) label.textContent = "Chọn nhiều ảnh (.jpg, .png)";
+    delete input.dataset.photosJson;
+    return;
+  }
+  const files = Array.from(input.files);
+  if (label) label.textContent = `Đang đọc ${files.length} ảnh...`;
+  const photos = [];
+  let done = 0;
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const key = genFileKey();
+      idbSet(key, e.target.result).then(() => {
+        state.mediaCache[key] = e.target.result;
+        photos.push({ dataKey: key, caption: file.name.replace(/\.[^.]+$/, "") });
+        done++;
+        if (done === files.length) {
+          input.dataset.photosJson = JSON.stringify(photos);
+          if (label) label.textContent = `Đã chọn ${files.length} ảnh`;
+        }
+      }).catch(err => { console.error("Lưu ảnh thất bại:", err); if (label) label.textContent = "Lỗi khi đọc ảnh — vui lòng thử lại"; });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function submitNewAlbum() {
+  if (!canManageMedia()) { showToast("Bạn không có quyền tạo album", "error"); return; }
+  const title = document.getElementById("newAlbumTitle").value.trim();
+  if (!title) { showToast("Vui lòng nhập tên album", "warning"); return; }
+  const dateStr = document.getElementById("newAlbumDate").value.trim() || new Date().toLocaleDateString("vi-VN");
+  const photosInput = document.getElementById("newAlbumPhotos");
+  let images = [];
+  if (photosInput && photosInput.dataset.photosJson) {
+    try { images = JSON.parse(photosInput.dataset.photosJson); } catch (e) { images = []; }
+  }
+
+  const maxId = state.albums.reduce((m, a) => Math.max(m, a.id), 0);
+  const newAlbum = { id: maxId + 1, title: title, date: dateStr, count: images.length, images: images };
+
+  state.albums.unshift(newAlbum);
+  if (!saveState("albums", state.albums)) { state.albums.shift(); return; }
+  renderAlbums();
+  closeModal("modalNewAlbum");
+  showToast(`Đã tạo album "${title}"${images.length ? ` với ${images.length} ảnh` : ''}.`, "success");
+
+  document.getElementById("formNewAlbum").reset();
+  if (photosInput) delete photosInput.dataset.photosJson;
+  const label = document.getElementById("newAlbumPhotosLabel");
+  if (label) label.textContent = "Chọn nhiều ảnh (.jpg, .png)";
+}
+
+function deleteAlbum(albumId, event) {
+  if (event) event.stopPropagation();
+  if (!canManageMedia()) { showToast("Bạn không có quyền xóa album", "error"); return; }
+  const album = state.albums.find(a => a.id === albumId);
+  if (!album) return;
+  if (!confirm(`Xóa album "${album.title}" và toàn bộ ${album.images.length} ảnh trong đó?`)) return;
+  // Dọn ảnh trong IndexedDB + cache bộ nhớ
+  (album.images || []).forEach(img => {
+    if (img.dataKey) { idbDel(img.dataKey).catch(() => {}); delete state.mediaCache[img.dataKey]; }
+  });
+  state.albums = state.albums.filter(a => a.id !== albumId);
+  saveState("albums", state.albums);
+  renderAlbums();
+  showToast("Đã xóa album", "success");
+}
+
 function renderAlbums() {
   const grid = document.getElementById("albumsGrid");
   if (!grid) return;
+  const canManage = canManageMedia();
+  const newAlbumBtn = document.getElementById("newAlbumBtn");
+  if (newAlbumBtn) newAlbumBtn.style.display = canManage ? "inline-flex" : "none";
   grid.innerHTML = state.albums.map(a => `
-    <div class="album-card" onclick="openLightbox(${a.id}, 0)">
-      <div class="album-cover" style="background-image: url('${a.cover}')">
+    <div class="album-card">
+      <div class="album-cover" style="background-image: url('${albumCoverSrc(a)}')" onclick="openLightbox(${a.id}, 0)">
         <div class="album-cover-overlay">
           <div class="album-count"><span class="material-symbols-outlined" style="font-size:16px;">image</span> ${a.images.length} ảnh</div>
         </div>
+        ${canManage ? `
+          <button class="album-delete-btn" onclick="deleteAlbum(${a.id}, event)" title="Xóa album"><span class="material-symbols-outlined" style="font-size:18px;">delete</span></button>
+          <button class="album-add-photo-btn" onclick="triggerAddAlbumPhoto(${a.id}, event)" title="Thêm ảnh vào album"><span class="material-symbols-outlined" style="font-size:18px;">add_photo_alternate</span></button>
+        ` : ''}
       </div>
-      <div class="album-body">
+      <div class="album-body" onclick="openLightbox(${a.id}, 0)">
         <div class="album-title">${a.title}</div>
         <div class="album-date">Ngày sự kiện: ${a.date}</div>
       </div>
@@ -3019,13 +3559,73 @@ function renderAlbums() {
   `).join('');
 }
 
+// ---- Add / delete album photos ----
+let _addPhotoTargetAlbum = null;
+
+function triggerAddAlbumPhoto(albumId, event) {
+  if (event) event.stopPropagation();
+  _addPhotoTargetAlbum = albumId;
+  const input = document.getElementById("albumPhotoInput");
+  if (input) { input.value = ""; input.click(); }
+}
+
+function handleAlbumPhotoUpload(input) {
+  const album = state.albums.find(a => a.id === _addPhotoTargetAlbum);
+  _addPhotoTargetAlbum = null;
+  if (!album || !(input.files && input.files.length)) return;
+  const files = Array.from(input.files);
+  let done = 0;
+  showToast(`Đang tải lên ${files.length} ảnh...`, "info");
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const key = genFileKey();
+      // Photos can be large → store in IndexedDB, keep only a reference.
+      idbSet(key, e.target.result).then(() => {
+        state.mediaCache[key] = e.target.result;
+        album.images.push({ dataKey: key, caption: file.name.replace(/\.[^.]+$/, "") });
+        done++;
+        if (done === files.length) {
+          album.count = album.images.length;
+          saveState("albums", state.albums);
+          renderAlbums();
+          showToast(`Đã thêm ${files.length} ảnh vào "${album.title}".`, "success");
+        }
+      }).catch(err => { console.error("Lưu ảnh thất bại:", err); showToast("Lỗi khi lưu ảnh.", "error"); });
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function deleteLightboxPhoto() {
+  const album = state.lightboxAlbum;
+  if (!album || !canManageMedia()) return;
+  if (!confirm("Xóa ảnh này khỏi album?")) return;
+  const idx = state.lightboxIndex;
+  album.images.splice(idx, 1);
+  album.count = album.images.length;
+  saveState("albums", state.albums);
+  renderAlbums();
+  if (album.images.length === 0) {
+    closeLightbox();
+    showToast("Đã xóa ảnh. Album hiện đang trống.", "success");
+    return;
+  }
+  state.lightboxIndex = Math.min(idx, album.images.length - 1);
+  updateLightbox();
+  showToast("Đã xóa ảnh khỏi album.", "success");
+}
+
 function openLightbox(albumId, index) {
   const album = state.albums.find(a => a.id === albumId);
   if (!album) return;
-  
+  if (!album.images || album.images.length === 0) {
+    showToast("Album chưa có ảnh nào.", "info");
+    return;
+  }
   state.lightboxAlbum = album;
-  state.lightboxIndex = index;
-  
+  state.lightboxIndex = Math.min(index, album.images.length - 1);
+
   updateLightbox();
   document.getElementById("lightboxModal").style.display = "flex";
 }
@@ -3043,19 +3643,22 @@ function closeLightboxOutside(event) {
 function updateLightbox() {
   const album = state.lightboxAlbum;
   const idx = state.lightboxIndex;
-  
+
   if (!album || !album.images[idx]) return;
-  
+
   const imgEl = document.getElementById("lightboxImg");
   const captionEl = document.getElementById("lightboxCaption");
-  
-  imgEl.src = album.images[idx].url;
+
+  imgEl.src = albumImgSrc(album.images[idx]);
   captionEl.textContent = `${album.title} (${idx + 1}/${album.images.length}) — ${album.images[idx].caption}`;
+
+  const delBtn = document.getElementById("lightboxDeleteBtn");
+  if (delBtn) delBtn.style.display = canManageMedia() ? "flex" : "none";
 }
 
 function navigateLightbox(delta) {
   if (!state.lightboxAlbum) return;
-  
+
   const max = state.lightboxAlbum.images.length;
   state.lightboxIndex = (state.lightboxIndex + delta + max) % max;
   updateLightbox();
@@ -3225,45 +3828,75 @@ function drawDoughnut(canvasId, labels, data, colors) {
   });
 }
 
+// Nguồn tin cho "mục tin lớn": ưu tiên các tin đã ghim; nếu không có thì lấy
+// tin sự kiện, cuối cùng là tin mới nhất — để hero luôn có nội dung.
+function getCarouselNews() {
+  const pinned = state.news.filter(n => n.pinned);
+  if (pinned.length > 0) return pinned.slice(0, 8);
+  const featured = state.news.filter(n => n.category === "tin-tuc");
+  if (featured.length > 0) return featured.slice(0, 5);
+  return state.news.slice(0, 5);
+}
+
+function renderCarousel() {
+  const carouselContainer = document.getElementById("dashCarouselContainer");
+  if (!carouselContainer) return;
+  const carouselNews = getCarouselNews();
+  state.carouselCount = carouselNews.length;
+  if (carouselNews.length === 0) { carouselContainer.innerHTML = ""; return; }
+  if (state.currentCarouselIndex === undefined) state.currentCarouselIndex = 0;
+  const idx = ((state.currentCarouselIndex % carouselNews.length) + carouselNews.length) % carouselNews.length;
+  const currentSlide = carouselNews[idx];
+  const showNav = carouselNews.length > 1;
+  carouselContainer.innerHTML = `
+      <div class="carousel-slide" onclick="showNewsDetail(${currentSlide.id})" style="background-image: linear-gradient(to bottom, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.85) 100%), url('${currentSlide.image}');">
+        <span class="carousel-badge">TIN NỔI BẬT</span>
+        ${showNav ? `
+        <button class="carousel-arrow prev" onclick="navigateCarousel(-1, event)">
+          <span class="material-symbols-outlined">chevron_left</span>
+        </button>
+        <button class="carousel-arrow next" onclick="navigateCarousel(1, event)">
+          <span class="material-symbols-outlined">chevron_right</span>
+        </button>` : ''}
+
+        <div class="carousel-content">
+          <h2 class="carousel-title">${currentSlide.title}</h2>
+          <p class="carousel-desc">${currentSlide.excerpt}</p>
+          <button class="btn btn-primary carousel-btn" onclick="showNewsDetail(${currentSlide.id}); event.stopPropagation();">Xem chi tiết</button>
+        </div>
+        ${showNav ? `
+        <div class="carousel-dots">
+          ${carouselNews.map((_, i) => `
+            <span class="carousel-dot ${i === idx ? 'active' : ''}" onclick="setCarouselSlide(${i}, event)"></span>
+          `).join('')}
+        </div>` : ''}
+      </div>
+    `;
+}
+
+// Bấm trái/phải để chuyển giữa các tin đã ghim (vòng lặp qua đầu/cuối).
+function navigateCarousel(delta, event) {
+  if (event) event.stopPropagation();
+  const count = state.carouselCount || 1;
+  state.currentCarouselIndex = (((state.currentCarouselIndex || 0) + delta) % count + count) % count;
+  renderCarousel();
+}
+
+function setCarouselSlide(idx, event) {
+  if (event) event.stopPropagation();
+  state.currentCarouselIndex = idx;
+  renderCarousel();
+}
+
 function renderDashboard() {
   // Initialize carousel index if not set
   if (state.currentCarouselIndex === undefined) {
     state.currentCarouselIndex = 0;
   }
   
-  // 1. Render Carousel (Tin nổi bật)
-  let carouselNews = state.news.filter(n => n.pinned || n.category === "tin-tuc").slice(0, 5);
-  if (carouselNews.length === 0) carouselNews = state.news.slice(0, 5);
-  
-  const carouselContainer = document.getElementById("dashCarouselContainer");
-  if (carouselContainer && carouselNews.length > 0) {
-    const currentSlide = carouselNews[state.currentCarouselIndex % carouselNews.length];
-carouselContainer.innerHTML = `
-      <div class="carousel-slide" onclick="showNewsDetail(${currentSlide.id})" style="background-image: linear-gradient(to bottom, rgba(0,0,0,0.1) 40%, rgba(0,0,0,0.85) 100%), url('${currentSlide.image}');">
-        <span class="carousel-badge">TIN NỔI BẬT</span>
-        
-        <button class="carousel-arrow prev" onclick="navigateCarousel(-1, event)">
-          <span class="material-symbols-outlined">chevron_left</span>
-        </button>
-        <button class="carousel-arrow next" onclick="navigateCarousel(1, event)">
-          <span class="material-symbols-outlined">chevron_right</span>
-        </button>
-        
-        <div class="carousel-content">
-          <h2 class="carousel-title">${currentSlide.title}</h2>
-          <p class="carousel-desc">${currentSlide.excerpt}</p>
-          <button class="btn btn-primary carousel-btn" onclick="showNewsDetail(${currentSlide.id}); event.stopPropagation();">Xem chi tiết</button>
-        </div>
-        
-        <div class="carousel-dots">
-          ${carouselNews.map((_, idx) => `
-            <span class="carousel-dot ${idx === (state.currentCarouselIndex % carouselNews.length) ? 'active' : ''}" onclick="setCarouselSlide(${idx}, event)"></span>
-          `).join('')}
-        </div>
-      </div>
-    `;
-  }
-  
+  // 1. Render "Mục tin lớn" (các tin đã ghim; bấm trái/phải để chuyển tin)
+  renderCarousel();
+
   // 2. Render Small News List (middle column of Row 1)
   const smallNews = state.news.slice(0, 4);
   const smallNewsList = document.getElementById("dashSmallNewsList");
@@ -3307,16 +3940,8 @@ carouselContainer.innerHTML = `
                 <span class="count">${n.likes}</span>
               </button>
               <button class="action-btn-item" onclick="showNewsDetail(${n.id})">
-                <span class="material-symbols-outlined">chat_bubble</span> 
+                <span class="material-symbols-outlined">chat_bubble</span>
                 <span class="count">${n.comments.length}</span>
-              </button>
-            </div>
-            <div class="right-actions">
-              <button class="action-btn-item ${n.bookmarkedBy && n.bookmarkedBy.includes(state.currentUser.username) ? 'active' : ''}" onclick="toggleBookmarkNews(${n.id})">
-                <span class="material-symbols-outlined">bookmark</span>
-              </button>
-              <button class="action-btn-item" onclick="handleShareInternal()">
-                <span class="material-symbols-outlined">share</span>
               </button>
             </div>
           </div>
@@ -3379,14 +4004,59 @@ carouselContainer.innerHTML = `
       surveyWidget.innerHTML = `<div style="padding:24px; text-align:center; color:var(--text-muted);">Không có khảo sát hoạt động.</div>`;
     }
   }
-  
+
+  // 4b. Hide the "Khảo sát nổi bật" card when the surveys tab is turned off in config.
+  const surveyCard = document.getElementById("dashSurveyCard");
+  if (surveyCard) {
+    const surveysEnabled = Array.isArray(state.activeTabs) && state.activeTabs.indexOf("surveys") !== -1;
+    surveyCard.style.display = surveysEnabled ? "" : "none";
+  }
+
+  // 4c. "Quyết định & Văn bản chỉ đạo" — 3 văn bản mới nhất
+  const decisionsList = document.getElementById("dashDecisionsList");
+  if (decisionsList) {
+    const decisions = state.documents
+      .filter(d => d.type === "Quyết định & Văn bản chỉ đạo")
+      .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")))
+      .slice(0, 3);
+    decisionsList.innerHTML = decisions.length ? decisions.map(d => `
+      <div class="dash-mini-item" onclick="showDocDetail(${d.id})">
+        <span class="material-symbols-outlined dash-mini-ico blue">verified</span>
+        <div class="dash-mini-info">
+          <div class="dash-mini-title">${d.title}</div>
+          <div class="dash-mini-meta">${d.code || d.dept || ''} • ${d.date}</div>
+        </div>
+        <span class="material-symbols-outlined dash-mini-chevron">chevron_right</span>
+      </div>
+    `).join('') : `<div class="dash-empty">Chưa có quyết định / văn bản chỉ đạo.</div>`;
+  }
+
+  // 4d. "Yêu cầu / Trình duyệt" — 3 tin mới nhất
+  const reqList = document.getElementById("dashRequestsList");
+  if (reqList) {
+    const latestReqs = [...state.requests].sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))).slice(0, 3);
+    const statusMap = { approved: ["Đã duyệt", "ok"], pending: ["Chờ duyệt", "wait"], rejected: ["Từ chối", "no"] };
+    reqList.innerHTML = latestReqs.length ? latestReqs.map(r => {
+      const s = statusMap[r.status] || ["—", ""];
+      return `
+      <div class="dash-mini-item" onclick="switchView('requests'); showRequestDetail(${r.id});">
+        <span class="material-symbols-outlined dash-mini-ico orange">assignment</span>
+        <div class="dash-mini-info">
+          <div class="dash-mini-title">${r.type} — ${r.userName}</div>
+          <div class="dash-mini-meta">${r.dept} • ${r.date}</div>
+        </div>
+        <span class="dash-status-badge ${s[1]}">${s[0]}</span>
+      </div>`;
+    }).join('') : `<div class="dash-empty">Chưa có yêu cầu nào.</div>`;
+  }
+
   // 5. Render Albums (Column 3 of Row 3)
   const albums = state.albums.slice(0, 4);
   const albumsGrid = document.getElementById("dashAlbumsGrid");
   if (albumsGrid) {
     albumsGrid.innerHTML = albums.map(a => `
-      <div class="dash-album-item" onclick="switchView('albums'); showAlbumDetail(${a.id});">
-        <div class="dash-album-cover" style="background-image: url('${a.cover}');"></div>
+      <div class="dash-album-item" onclick="switchView('albums'); openLightbox(${a.id}, 0);">
+        <div class="dash-album-cover" style="background-image: url('${albumCoverSrc(a)}');"></div>
         <div class="dash-album-title">${a.title}</div>
         <div class="dash-album-count">${a.images.length} ảnh</div>
       </div>
