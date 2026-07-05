@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=swap" rel="stylesheet">
   
-  <link rel="stylesheet" href="css/styles.css?v=1.0.2">
+  <link rel="stylesheet" href="css/styles.css?v=1.0.3">
 </head>
 <body>
 
@@ -615,6 +615,21 @@
           <input type="file" id="albumPhotoInput" accept="image/*" multiple style="display: none;" onchange="handleAlbumPhotoUpload(this)">
         </section>
 
+        <!-- ============================
+             VIEW: THU THẬP EFORM
+             ============================ -->
+        <section id="view-eform" class="app-view">
+          <div class="page-header">
+            <div>
+              <h2 style="font-weight: 800;">Thu thập eForm</h2>
+              <p class="page-desc">Các biểu mẫu thu thập thông tin được giao cho bạn. Vui lòng hoàn thành các biểu mẫu chưa điền.</p>
+            </div>
+          </div>
+          <div id="eformCollectContainer">
+            <!-- Loaded dynamically -->
+          </div>
+        </section>
+
         <!-- Modal: Tạo album mới -->
         <div id="modalNewAlbum" class="modal-overlay" onclick="closeModalOutside(event, 'modalNewAlbum')">
           <div class="modal">
@@ -665,6 +680,18 @@
               <h3>Thông tin tài khoản</h3>
             </div>
             <div class="card-body">
+              <!-- Ảnh cá nhân -->
+              <div style="display:flex; align-items:center; gap:16px; margin-bottom:20px; padding-bottom:16px; border-bottom:1px solid var(--border-light);">
+                <div id="settingsAvatar" class="avatar" style="width:64px; height:64px; font-size:1.5rem; font-weight:700; color:white; background:var(--primary); border-radius:50%; display:flex; align-items:center; justify-content:center; background-size:cover; background-position:center; flex-shrink:0;">NA</div>
+                <div>
+                  <div style="font-weight:700; font-size:0.95rem;" id="settingsAvatarName">Nguyễn Văn An</div>
+                  <div style="display:flex; gap:8px; margin-top:8px;">
+                    <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('avatarUploadInput').click()"><span class="material-symbols-outlined" style="font-size:16px; vertical-align:middle;">photo_camera</span> Đổi ảnh</button>
+                    <button type="button" class="btn btn-outline btn-sm" id="removeAvatarBtn" onclick="removeAvatar()" style="display:none; color:var(--danger);">Gỡ ảnh</button>
+                  </div>
+                  <input type="file" id="avatarUploadInput" accept="image/*" style="display:none;" onchange="handleAvatarUpload(this)">
+                </div>
+              </div>
               <form onsubmit="return false;">
                 <div class="form-row">
                   <div class="form-group">
@@ -695,10 +722,52 @@
                   <input type="text" id="settingsPhone" value="0987.654.321">
                 </div>
                 <div class="form-group" style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 16px; text-align: right;">
-                  <button type="button" class="btn btn-outline" style="margin-right: 8px;">Hủy thay đổi</button>
                   <button type="button" class="btn btn-primary" onclick="saveSettings()">Lưu cấu hình</button>
                 </div>
               </form>
+            </div>
+          </div>
+
+          <!-- Đổi mật khẩu -->
+          <div class="card" style="max-width: 640px; margin: 20px auto 0;">
+            <div class="card-header"><h3>Đổi mật khẩu</h3></div>
+            <div class="card-body">
+              <form onsubmit="return false;">
+                <div class="form-group">
+                  <label>Mật khẩu hiện tại</label>
+                  <input type="password" id="pwCurrent" placeholder="Nhập mật khẩu hiện tại (bỏ trống nếu chưa đặt)">
+                </div>
+                <div class="form-row">
+                  <div class="form-group">
+                    <label>Mật khẩu mới *</label>
+                    <input type="password" id="pwNew" placeholder="Tối thiểu 6 ký tự">
+                  </div>
+                  <div class="form-group">
+                    <label>Xác nhận mật khẩu mới *</label>
+                    <input type="password" id="pwConfirm" placeholder="Nhập lại mật khẩu mới">
+                  </div>
+                </div>
+                <div style="text-align:right; border-top:1px solid var(--border); padding-top:16px; margin-top:8px;">
+                  <button type="button" class="btn btn-primary" onclick="changePassword()">Đổi mật khẩu</button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Nhận thông báo qua email -->
+          <div class="card" style="max-width: 640px; margin: 20px auto 0;">
+            <div class="card-header"><h3>Nhận thông báo qua email</h3></div>
+            <div class="card-body">
+              <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:14px;">Chọn loại thông báo bạn muốn nhận qua email <span id="settingsEmailAddr" style="font-weight:600;"></span>.</p>
+              <div style="display:flex; flex-direction:column; gap:12px;">
+                <label class="custom-checkbox" style="display:flex; align-items:center; gap:8px; margin:0;"><input type="checkbox" id="notifMandatory"> Thông báo bắt buộc đọc</label>
+                <label class="custom-checkbox" style="display:flex; align-items:center; gap:8px; margin:0;"><input type="checkbox" id="notifApprovals"> Kết quả phê duyệt đơn từ</label>
+                <label class="custom-checkbox" style="display:flex; align-items:center; gap:8px; margin:0;"><input type="checkbox" id="notifNews"> Tin tức &amp; thông báo mới</label>
+                <label class="custom-checkbox" style="display:flex; align-items:center; gap:8px; margin:0;"><input type="checkbox" id="notifCalendar"> Nhắc lịch họp / sự kiện</label>
+              </div>
+              <div style="text-align:right; border-top:1px solid var(--border); padding-top:16px; margin-top:16px;">
+                <button type="button" class="btn btn-primary" onclick="saveEmailNotifSettings()">Lưu tùy chọn thông báo</button>
+              </div>
             </div>
           </div>
         </section>
@@ -720,7 +789,7 @@
             <button id="admin-tab-btn-taxonomies" class="sub-tab-btn" onclick="switchAdminTab('taxonomies')">Quản lý danh mục</button>
             <button id="admin-tab-btn-workflows" class="sub-tab-btn" onclick="switchAdminTab('workflows')">Luồng phê duyệt</button>
             <button id="admin-tab-btn-tabs" class="sub-tab-btn" onclick="switchAdminTab('tabs')">Cấu trúc Tab</button>
-            <button id="admin-tab-btn-eforms" class="sub-tab-btn" onclick="switchAdminTab('eforms')">Biểu mẫu & Báo cáo</button>
+            <button id="admin-tab-btn-eforms" class="sub-tab-btn" onclick="switchAdminTab('eforms')">eForm</button>
             <button id="admin-tab-btn-announcements" class="sub-tab-btn" onclick="switchAdminTab('announcements')">Giám sát đọc thông báo</button>
           </div>
 
@@ -917,13 +986,38 @@
                 <p style="font-size: 0.8rem; color: var(--text-secondary); margin-top:4px;">Thiết lập các bước phê duyệt và chỉ định nhân sự phê duyệt cho từng thủ tục đăng ký trong hệ thống.</p>
               </div>
               <div class="card-body">
+                <!-- Thêm thủ tục hành chính mới -->
                 <div class="form-group">
-                  <label for="workflowProcSelect">Chọn thủ tục hành chính:</label>
+                  <label>Thêm thủ tục hành chính mới:</label>
+                  <div style="display:flex; gap:8px;">
+                    <input type="text" id="newProcNameInput" placeholder="VD: Đề nghị thanh toán, Đăng ký công tác..." style="flex:1;">
+                    <button class="btn btn-outline btn-sm" onclick="addProcedureInWorkflow()"><span class="material-symbols-outlined" style="font-size:14px; vertical-align:middle;">add</span> Thêm thủ tục</button>
+                  </div>
+                </div>
+
+                <div class="form-group">
+                  <label for="workflowProcSelect">Chọn thủ tục để cấu hình:</label>
                   <select id="workflowProcSelect" onchange="changeWorkflowProc()" style="max-width: 320px; font-weight:600; color:var(--primary);">
                     <!-- Loaded dynamically from state.procedureTypes -->
                   </select>
                 </div>
-                
+
+                <div class="form-group">
+                  <label for="workflowProcDescription">Mô tả luồng nghiệp vụ:</label>
+                  <textarea id="workflowProcDescription" rows="2" placeholder="VD: Nhân viên đăng ký → Trưởng phòng duyệt → Kế toán thanh toán..." style="width:100%;"></textarea>
+                </div>
+
+                <!-- Trình thiết kế TRƯỜNG dữ liệu của thủ tục -->
+                <div style="margin-top: 20px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                  <strong style="font-size: 0.88rem; color: var(--text);">Các trường dữ liệu người dùng cần nhập:</strong>
+                  <button class="btn btn-outline btn-sm" onclick="openAddProcFieldModal()" style="font-size: 0.78rem;">
+                    <span class="material-symbols-outlined" style="font-size: 14px; vertical-align: middle;">add</span> Thêm trường
+                  </button>
+                </div>
+                <div id="procFieldsDesigner" style="margin-bottom: 20px; padding: 4px; border: 1px solid var(--border-light); border-radius: 6px; background:#fafafa;">
+                  <!-- Loaded dynamically in renderProcFieldsDesigner() -->
+                </div>
+
                 <div style="margin-top: 24px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
                   <strong style="font-size: 0.88rem; color: var(--text);">Các bước duyệt trong luồng quy trình:</strong>
                   <button class="btn btn-outline btn-sm" onclick="openAddWorkflowStepModal()" style="font-size: 0.78rem;">
@@ -937,7 +1031,7 @@
                 </div>
                 
                 <div style="text-align: right; border-top: 1px solid var(--border-light); padding-top: 16px;">
-                  <button class="btn btn-primary" onclick="saveWorkflowConfig()">Lưu cấu hình quy trình</button>
+                  <button class="btn btn-primary" onclick="saveWorkflowConfig()">Lưu cấu hình thủ tục (luồng + trường)</button>
                 </div>
               </div>
             </div>
@@ -1200,7 +1294,16 @@
           <div class="doc-detail-item"><div class="label">Ngày gửi đơn</div><div class="value" id="reqDetailDate">02/07/2026</div></div>
           <div class="doc-detail-item"><div class="label">Trạng thái hiện tại</div><div class="value" id="reqDetailStatus">Chờ duyệt</div></div>
         </div>
-        
+
+        <!-- Mã số phiếu thủ tục (chỉ khi đã duyệt) -->
+        <div id="reqDetailSlipBox" style="display:none; align-items:center; gap:10px; background:#ecfdf5; border:1px solid #a7f3d0; border-radius:8px; padding:10px 14px; margin-bottom:16px;">
+          <span class="material-symbols-outlined" style="color:#059669;">verified</span>
+          <div>
+            <div style="font-size:0.72rem; color:#065f46; font-weight:600;">MÃ SỐ PHIẾU THỦ TỤC (dùng để tra cứu hồ sơ)</div>
+            <div id="reqDetailSlipCode" style="font-size:1.05rem; font-weight:800; color:#065f46; font-family:monospace; letter-spacing:1px;">—</div>
+          </div>
+        </div>
+
         <div class="doc-detail-section" style="margin-bottom: 20px;">
           <h4>Chi tiết nội dung đề xuất</h4>
           <div id="reqDetailContent" style="background: var(--bg); padding: 16px; border-radius: var(--radius); line-height: 1.6; color: var(--text-secondary); font-size: 0.95rem;">
@@ -1217,6 +1320,7 @@
         </div>
       </div>
       <div class="modal-footer">
+        <button id="btnPrintSlip" class="btn btn-primary" style="display:none; align-items:center; gap:6px;"><span class="material-symbols-outlined" style="font-size:18px;">print</span> In phiếu phê duyệt</button>
         <button class="btn btn-secondary" onclick="closeModal('modalRequestDetail')">Đóng</button>
       </div>
     </div>
@@ -1731,6 +1835,43 @@
     </div>
   </div>
 
+  <!-- Modal: Thêm trường dữ liệu cho thủ tục -->
+  <div id="modalAddProcField" class="modal-overlay" onclick="closeModalOutside(event, 'modalAddProcField')">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Thêm trường dữ liệu</h2>
+        <button class="btn-icon-only modal-close-btn" onclick="closeModal('modalAddProcField')"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="newFieldLabel">Tên trường (nhãn hiển thị) *</label>
+          <input type="text" id="newFieldLabel" placeholder="VD: Số tiền đề nghị, Ngày bắt đầu, Lộ trình..." required>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="newFieldType">Kiểu dữ liệu *</label>
+            <select id="newFieldType">
+              <option value="text">Chữ (một dòng)</option>
+              <option value="textarea">Đoạn văn (nhiều dòng)</option>
+              <option value="number">Số</option>
+              <option value="date">Ngày</option>
+              <option value="time">Giờ</option>
+            </select>
+          </div>
+          <div class="form-group" style="display:flex; align-items:center;">
+            <label class="custom-checkbox" style="margin-top:22px;">
+              <input type="checkbox" id="newFieldRequired" checked> Bắt buộc nhập
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modalAddProcField')">Hủy bỏ</button>
+        <button class="btn btn-primary" onclick="submitAddProcField()">Thêm trường</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal: Thiết kế eForm động mới -->
   <div id="modalCreateEForm" class="modal-overlay" onclick="closeModalOutside(event, 'modalCreateEForm')">
     <div class="modal">
@@ -1747,7 +1888,22 @@
           <label for="newEFormDesc">Mô tả chi tiết</label>
           <input type="text" id="newEFormDesc" placeholder="Mục đích thu thập thông tin này...">
         </div>
-        
+
+        <!-- Phân quyền: chọn nhân sự sẽ điền form -->
+        <div class="form-group">
+          <label style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Nhân sự được điền form (phân quyền)</span>
+            <span style="display:flex; gap:10px; font-weight:400; font-size:0.75rem;">
+              <a href="#" onclick="toggleAllEFormAssignees(true); return false;">Chọn tất cả</a>
+              <a href="#" onclick="toggleAllEFormAssignees(false); return false;">Bỏ chọn</a>
+            </span>
+          </label>
+          <div id="eformAssigneesList" style="max-height:120px; overflow-y:auto; border:1px solid var(--border-light); border-radius:6px; padding:6px; background:#f8fafc;">
+            <!-- Loaded dynamically -->
+          </div>
+          <p id="eformAssigneesNote" style="font-size:0.72rem; color:var(--text-muted); margin-top:4px;"></p>
+        </div>
+
         <div style="margin-top: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
           <h4 style="font-size: 0.85rem; font-weight: 700; color: var(--text);">Các trường thông tin (Form Fields)</h4>
           <button class="btn btn-outline btn-sm" onclick="addEFormField()" style="padding: 4px 8px; font-size: 0.78rem;">
@@ -1793,6 +1949,6 @@
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Javascript entry point -->
-  <script src="js/app.js?v=1.0.2"></script>
+  <script src="js/app.js?v=1.0.3"></script>
 </body>
 </html>
